@@ -1,5 +1,4 @@
 # PlotEquation
-Some snippets of code for a plugin in Rhino that can plot equations
 
 I've successfully created a plugin that can graph explicit 2D, 3D, and 4D equations for the CAD software Rhinoceros3D. I've extended the features of my program to include stereographic projections, mandelbrot outputs, and 2D L-Systems. I'm currently working on implementing a 3D L-System. To do so, I need to make a 3D turtle with relative rotations such as yaw, pitch, and roll.
 
