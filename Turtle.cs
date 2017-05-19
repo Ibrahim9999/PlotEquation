@@ -1,6 +1,6 @@
-public struct Vector3D
-{
-	public double X;
+    public struct Vector3D
+    {
+    	public double X;
 	public double Y;
 	public double Z;
 	
@@ -61,7 +61,7 @@ public struct Vector3D
 	{
 		return this == (Vector3D) obj;
 	}
-	
+    	
 	public override int GetHashCode()
 	{
 		return X.GetHashCode() ^ Y.GetHashCode() ^ Z.GetHashCode();
@@ -180,9 +180,9 @@ public struct Quaternion
 	
 	public static Quaternion From2Vectors(Vector3D u, Vector3D v)
 	{
-//			double m = Math.Sqrt(2 + 2 * Vector3D.DotProduct(u, v));
-//			
-//			return new Quaternion(.5 * m, Vector3D.CrossProduct(u, v) / m);
+//		double m = Math.Sqrt(2 + 2 * Vector3D.DotProduct(u, v));
+//		
+//		return new Quaternion(.5 * m, Vector3D.CrossProduct(u, v) / m);
 		
 		
 		Quaternion q = new Quaternion(0,Vector3D.CrossProduct(u,v));
@@ -202,7 +202,7 @@ public struct Quaternion
 	{
 		get { return new Quaternion(1, 0, 0, 0); }
 	}
-	
+	   
 	public double Magnitude()
 	{
 		return Math.Sqrt(W*W + X*X + Y*Y + Z*Z);
@@ -211,7 +211,7 @@ public struct Quaternion
 	{
 		return Math.Sqrt(q.W*q.W + q.X*q.X + q.Y*q.Y + q.Z*q.Z);
 	}
-	
+	   
 	public Quaternion Conjugate()
 	{
 		return new Quaternion(W, -X, -Y, -Z);
@@ -223,7 +223,7 @@ public struct Quaternion
 	
 	public Quaternion Inverse()
 	{
-		return this / Math.Pow(this.Magnitude(), 2);
+		return this / Math.Pow(Magnitude(), 2);
 	}
 	public static Quaternion Inverse(Quaternion q)
 	{
@@ -246,6 +246,24 @@ public struct Quaternion
 	public static Vector3D VectorComponent(Quaternion q)
 	{
 		return new Vector3D(q.X, q.Y, q.Z);
+	}
+	
+	public double Angle()
+	{
+		return 2 * Math.Acos(Normalize().W);
+	}
+	public static double Angle(Quaternion q)
+	{
+		return 2 * Math.Acos(q.Normalize().W);
+	}
+	
+	public Vector3D Axis()
+	{
+		return VectorComponent().Normalize();
+	}
+	public static Vector3D Axis(Quaternion q)
+	{
+		return q.VectorComponent().Normalize();
 	}
 	
 	public void ToEuler(ref double yaw, ref double pitch, ref double roll)
@@ -298,7 +316,7 @@ public struct Quaternion
 	{
 		return this == (Quaternion) obj;
 	}
-	
+    	
 	public override int GetHashCode()
 	{
 		return W.GetHashCode() ^ X.GetHashCode() ^ Y.GetHashCode() ^ Z.GetHashCode();
@@ -339,9 +357,9 @@ public struct Quaternion
 	public static Quaternion operator*(Quaternion a, Quaternion b)
 	{
 		return new Quaternion(a.W*b.W - a.X*b.X - a.Y*b.Y - a.Z*b.Z,
-							  a.W*b.X + a.X*b.W + a.Y*b.Z - a.Z*b.Y,
-							  a.W*b.Y - a.X*b.Z + a.Y*b.W + a.Z*b.X,
-							  a.W*b.Z + a.X*b.Y - a.Y*b.X + a.Z*b.W);
+		                      a.W*b.X + a.X*b.W + a.Y*b.Z - a.Z*b.Y,
+		                      a.W*b.Y - a.X*b.Z + a.Y*b.W + a.Z*b.X,
+		                      a.W*b.Z + a.X*b.Y - a.Y*b.X + a.Z*b.W);
 	}
 	
 	public static Quaternion operator/(Quaternion q, double d)
@@ -377,9 +395,8 @@ public class Turtle
 	
 	void TurnForward()
 	{
-		Vector3D v = rotation * Vector3D.Right;Output.Here(rotation.Inverse());Output.Here(34);
-		Vector3D b = rotation.Inverse() * v;Output.Here(1);
-		forward = b;Output.Here(2);
+		Vector3D v = localRotation * forward;
+		forward = localRotation.Inverse() * v;
 	}
 	
 	public void Yaw(double angle)
@@ -389,7 +406,7 @@ public class Turtle
 		Vector3D upAxis = Quaternion.VectorComponent(Quaternion.From2Vectors(Vector3D.Up, forward)).Normalize();
 		upAxis = Vector3D.CrossProduct(upAxis, forward);
 		
-		localRotation = Quaternion.FromAxisAngle(angle, upAxis);
+		localRotation = Quaternion.FromAxisAngle(angle / 2, upAxis);
 		
 		rotation *= localRotation;
 		
@@ -403,7 +420,7 @@ public class Turtle
 		Vector3D rightAxis = Quaternion.VectorComponent(Quaternion.From2Vectors(Vector3D.Forward, forward)).Normalize();
 		rightAxis = Vector3D.CrossProduct(rightAxis, forward);
 		
-		localRotation = Quaternion.FromAxisAngle(angle, rightAxis);
+		localRotation = Quaternion.FromAxisAngle(angle / 2, rightAxis);
 		
 		rotation *= localRotation;
 		
@@ -414,7 +431,7 @@ public class Turtle
 	{
 		angle *= Math.PI / 180;
 		
-		localRotation = Quaternion.FromAxisAngle(angle, forward);
+		localRotation = Quaternion.FromAxisAngle(angle / 2, forward);
 		
 		rotation *= localRotation;
 		
