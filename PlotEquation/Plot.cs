@@ -461,6 +461,10 @@ namespace PlotEquation
             return CheckForBadVar(eq.ToCharArray());
         }
 
+        /// <summary>
+        /// Removes the substrings that are mathematical functions from
+        /// equation; used for variable checking.
+        /// </summary>
         private bool CheckForBadVar(char[] eq)
         {
             foreach (char c in eq)
@@ -469,8 +473,11 @@ namespace PlotEquation
 
             return false;
         }
-
-        // Removes the substrings that are mathematical functions from equation; used for variable checking
+        
+        /// <summary>
+        /// Removes the substrings that are mathematical functions from
+        /// equation; used for variable checking.
+        /// </summary>
         private static void RemoveMathFunctions(ref string eq)
         {
             eq = eq.Replace("ieeeremainder(", "");
