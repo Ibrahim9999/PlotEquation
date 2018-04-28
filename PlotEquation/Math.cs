@@ -11,6 +11,11 @@ namespace PlotEquation
         public double min;
         public double max;
 
+        public Bounds(double m)
+        {
+            min = m;
+            max = m;
+        }
         public Bounds(double min, double max)
         {
             this.min = min;

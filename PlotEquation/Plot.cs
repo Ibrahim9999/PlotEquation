@@ -3,33 +3,10 @@ using System.Collections.Generic;
 using Rhino;
 using Rhino.Geometry;
 using NCalc;
+using System.Linq;
 
 namespace PlotEquation
 {
-    /// <summary>
-    /// Contains all the types of mathematical objects that can be plotted.
-    /// </summary>
-    public enum PlotType
-    {
-        NONE = 0, STANDARD_EQUATION, PARAMETRIC_EQUATION, MANDELBROT, STRANGE_ATTRACTOR,
-    }
-
-    /// <summary>
-    /// Contains all type of coordinate systems the plugin can plot.
-    /// </summary>
-    public enum EquationType
-    {
-        NONE = 0, CARTESIAN, SPHERICAL, CYLINDRICAL, CONICAL
-    }
-
-    /// <summary>
-    /// Used to differentiate which variables are used in an equation
-    /// </summary>
-    public enum VariablesUsed
-    {
-        NONE = 0, ONE, TWO, PARAMETRIC_CURVE, IMPLICIT_CURVE, ONE_TWO, TWO_THREE, ONE_THREE, PARAMETRIC_SURFACE, IMPLICIT_SURFACE,
-    }
-
     /// <summary>
     /// Contains the different ways mathematical objects can be graphed.
     /// </summary>
@@ -44,34 +21,46 @@ namespace PlotEquation
     }
 
     /// <summary>
-    /// Used for converting Plot objects to Rhino objects.
-    /// </summary>
-    public struct RhinoObjects
-    {
-        List<Point3d> points;
-        List<Curve> lines;
-        List<Curve> curves;
-        List<Surface> triangles;
-        List<Surface> quads;
-        List<Surface> surfaces;
-
-    }
-
-    public struct Variables
-    {
-        public VariablesUsed used;
-        public List<string> names;
-    };
-
-    /// <summary>
     /// Base mathematical object class.
     /// </summary>
     public abstract class Plot
     {
         /// <summary>
+        /// Contains all the types of mathematical objects that can be plotted.
+        /// </summary>
+        public enum Type
+        {
+            NONE = 0, STANDARD_EQUATION, PARAMETRIC_EQUATION, MANDELBROT, STRANGE_ATTRACTOR,
+        }
+        
+        /// <summary>
+        /// Used for converting Plot objects to Rhino objects.
+        /// </summary>
+        public struct RhinoObjects
+        {
+            List<Point3d> points;
+            List<List<Point3d>> grid;
+            List<Curve> lines;
+            List<Curve> curves;
+            List<List<Curve>> triframe;
+            List<List<Curve>> wireframe;
+            List<Surface> triangles;
+            List<Surface> quads;
+            List<Surface> surfaces;
+        }
+        
+        // CREATE PLOT TYPES (point, grid, line, triframe, wirefram, triangle, quad);
+        // CONVERT THEM TO RHINO OBJECTS
+
+        /// <summary>
+        /// Bool dictating whether plot generation is safe or not.
+        /// </summary>
+        protected bool success;
+
+        /// <summary>
         /// Represents the kind of mathematical object the Plot is.
         /// </summary>
-        protected PlotType plotType;
+        protected Type plotType;
 
         /// <summary>
         /// Any sliders are added here; used to see change over time.
@@ -81,14 +70,22 @@ namespace PlotEquation
         /// <summary>
         /// Returns the mathematical object type of the Plot.
         /// </summary>
-        protected PlotType ObjectType => plotType;
+        protected Type ObjectType => plotType;
+
+        /// <summary>
+        /// Returns whether plot can safely be generated.
+        /// </summary>
+        public bool Successful()
+        {
+            return success;
+        }
 
         /// <summary>
         /// Checks Plot to see whether it is an equation or not.
         /// </summary>
         public bool IsEquation()
         {
-            return plotType == PlotType.STANDARD_EQUATION || plotType == PlotType.PARAMETRIC_EQUATION;
+            return plotType == Type.STANDARD_EQUATION || plotType == Type.PARAMETRIC_EQUATION;
         }
 
         /// <summary>
@@ -96,7 +93,7 @@ namespace PlotEquation
         /// </summary>
         public bool IsStandardEquation()
         {
-            return plotType == PlotType.STANDARD_EQUATION;
+            return plotType == Type.STANDARD_EQUATION;
         }
 
         /// <summary>
@@ -104,7 +101,7 @@ namespace PlotEquation
         /// </summary>
         public bool IsParametricEquation()
         {
-            return plotType == PlotType.PARAMETRIC_EQUATION;
+            return plotType == Type.PARAMETRIC_EQUATION;
         }
 
         /// <summary>
@@ -112,7 +109,7 @@ namespace PlotEquation
         /// </summary>
         public bool IsMandelbrot()
         {
-            return plotType == PlotType.MANDELBROT;
+            return plotType == Type.MANDELBROT;
         }
 
         /// <summary>
@@ -120,7 +117,7 @@ namespace PlotEquation
         /// </summary>
         public bool IsStrangeAttractor()
         {
-            return plotType == PlotType.STRANGE_ATTRACTOR;
+            return plotType == Type.STRANGE_ATTRACTOR;
         }
 
         /// <summary>
@@ -172,6 +169,22 @@ namespace PlotEquation
     public abstract class Equation : Plot
     {
         /// <summary>
+        /// Contains all type of coordinate systems the plugin can plot.
+        /// </summary>
+        new public enum Type
+        {
+            NONE = 0, CARTESIAN, SPHERICAL, CYLINDRICAL, CONICAL
+        }
+
+        /// <summary>
+        /// Used to differentiate which variables are used in an equation
+        /// </summary>
+        public enum VariablesUsed
+        {
+            NONE = 0, ONE, TWO, PARAMETRIC_CURVE, IMPLICIT_CURVE, ONE_TWO, TWO_THREE, ONE_THREE, PARAMETRIC_SURFACE, IMPLICIT_SURFACE,
+        }
+
+        /// <summary>
         /// Wraps points back to each other in a loop.
         /// </summary>
         public bool wrapPoints;
@@ -182,14 +195,14 @@ namespace PlotEquation
         /// <summary>
         /// List of variables with their corresponding bounds.
         /// </summary>
-        private Dictionary<string, Bounds> vars = new Dictionary<string, Bounds>();
+        protected Dictionary<string, Bounds> vars = new Dictionary<string, Bounds>();
 
         /// <summary>
-        /// These lists contain the variables that can be used in equations.
+        /// These lists contain the cartesian variables that can be used in equations.
         /// </summary>
         /// <remarks>
         /// The order the variables are in these lists matter. For instance,
-        /// when considering an equation in the form of z(x,y), x an y are the
+        /// when considering an equation in the form of z(x,y), x and y are the
         /// independent variables used, and correspond to the first and second
         /// elements of the cartesianVars list. Therefore, the value stored to
         /// varables.used would be ONE_TWO.
@@ -198,10 +211,30 @@ namespace PlotEquation
         {
             "x", "y", "z", "w"
         };
+        /// <summary>
+        /// These lists contain the spherical variables that can be used in equations.
+        /// </summary>
+        /// <remarks>
+        /// The order the variables are in these lists matter. For instance,
+        /// when considering an equation in the form of r(theta,phi), theta and phi are the
+        /// independent variables used, and correspond to the first and third
+        /// elements of the sphericalVars list. Therefore, the value stored to
+        /// varables.used would be ONE_THREE.
+        /// </remarks>
         public readonly List<string> sphericalVars = new List<string>()
         {
             "theta", "r", "phi", "s"
         };
+        /// <summary>
+        /// These lists contain the cylindrical variables that can be used in equations.
+        /// </summary>
+        /// <remarks>
+        /// The order the variables are in these lists matter. For instance,
+        /// when considering an equation in the form of theta(r,z), r and z are the
+        /// independent variables used, and correspond to the second and third
+        /// elements of the sphericalVars list. Therefore, the value stored to
+        /// varables.used would be TWO_THREE.
+        /// </remarks>
         public readonly List<string> cylindricalVars = new List<string>()
         {
             "theta", "r", "z", "s"
@@ -219,11 +252,11 @@ namespace PlotEquation
         /// <summary>
         /// Represents the equation type.
         /// </summary>
-        protected EquationType equationType;
+        protected Type equationType;
         /// <summary>
         /// Represents the variables used in the equation.
         /// </summary>
-        protected Variables variables;
+        protected VariablesUsed variablesUsed;
 
         /// <summary>
         /// Represents the dimension of the equation.
@@ -302,7 +335,7 @@ namespace PlotEquation
         /// </summary>
         public bool IsImplicit()
         {
-            return variables.used == VariablesUsed.IMPLICIT_CURVE || variables.used == VariablesUsed.IMPLICIT_SURFACE;
+            return variablesUsed == VariablesUsed.IMPLICIT_CURVE || variablesUsed == VariablesUsed.IMPLICIT_SURFACE;
         }
 
         /// <summary>
@@ -310,13 +343,13 @@ namespace PlotEquation
         /// </summary>
         public bool IsParametric()
         {
-            return variables.used == VariablesUsed.PARAMETRIC_CURVE || variables.used == VariablesUsed.PARAMETRIC_SURFACE;
+            return variablesUsed == VariablesUsed.PARAMETRIC_CURVE || variablesUsed == VariablesUsed.PARAMETRIC_SURFACE;
         }
 
         /// <summary>
         /// Determines the equation type, variables, and dimension.
         /// </summary>
-        protected abstract bool DetermineEquationType();
+        protected abstract bool DetermineEquationType(List<Bounds> bounds);
     }
 
     /// <summary>
@@ -326,12 +359,23 @@ namespace PlotEquation
     {
         /// <summary>
         /// Custructs a StandardEquation from a string that represents an
-        /// expression, and an integer that represents the dimension.
+        /// expression, and a List of Bounds that represents the bounds for each
+        /// variable. The equation dimension is then found by the number of
+        /// elements in the list.
         /// </summary>
-        public StandardEquation(string expression, int dimension)
+        public StandardEquation(string expression, List<Bounds> bounds)
         {
-            plotType = PlotType.STANDARD_EQUATION;
+            plotType = Plot.Type.STANDARD_EQUATION;
             this.expression = expression;
+            dimension = bounds.Count + 1;
+
+            if (!DetermineEquationType(bounds))
+            {
+                success = false;
+                RhinoApp.WriteLine("Failed to create equation object.");
+            }
+            else
+                success = true;
         }
 
         /// <summary>
@@ -347,7 +391,7 @@ namespace PlotEquation
         /// <summary>
         /// Determines the equation type and variables.
         /// </summary>
-        protected override bool DetermineEquationType()
+        protected override bool DetermineEquationType(List<Bounds> bounds)
         {
             // List of variables that pertains to equation type
             List<string> vars = new List<string>();
@@ -355,85 +399,108 @@ namespace PlotEquation
             // Determines what kind of equation the expression is
             if (ValidVariables(cartesianVars))
             {
-                equationType = EquationType.CARTESIAN;
+                equationType = Type.CARTESIAN;
                 vars = cartesianVars;
             }
             else if (ValidVariables(sphericalVars))
             {
-                equationType = EquationType.SPHERICAL;
+                equationType = Type.SPHERICAL;
                 vars = sphericalVars;
             }
             else if (ValidVariables(cylindricalVars))
             {
-                equationType = EquationType.CYLINDRICAL;
+                equationType = Type.CYLINDRICAL;
                 vars = cylindricalVars;
             }
             else if (expression.Length == 0)
+            {
+                RhinoApp.WriteLine("The expression is empty.");
                 return false;
+            }
             else
+            {
+                RhinoApp.WriteLine("Unknown error.");
                 return false;
+            }
 
             // Bools for simplifying code, so I don't have to do
             // expression.Contains() all the time
             List<bool> exists = new List<bool>();
             bool equalsExists = expression.Contains("=");
 
-            string simplifiedEq = expression.Substring(expression.IndexOf('=') + 1);
-
+            // Removes equals sign from expression
+            string simplifiedEq = expression.Substring(expression.IndexOf('=') + 1) + "+0*";
+            
             for (int i = 0; i < dimension; i++)
                 exists.Add(expression.Contains(vars[i]));
 
-            // Figuring out which variables are used
+            // Uses different methods for testing expression depending on
+            // dimension. Figuring out which variables are used.
             switch (dimension)
             {
                 case 2:
+                    vars.RemoveAt(vars.Count - 1);
+
                     if (((exists[0] || ContainsRightVariables(new List<string>() { vars[1] })) && (expression.StartsWith(vars[1] + "=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[0] + ")=", StringComparison.Ordinal) || !equalsExists)) && ContainsRightVariables(new List<string>() { vars[1] }))
                     {
-                        variables.used = VariablesUsed.ONE;
-                        variables.names = vars;
-                        simplifiedEq += "+0*" + vars[0];
+                        variablesUsed = VariablesUsed.ONE;
+                        simplifiedEq += vars[0];
                     }
                     else if (((exists[1] || ContainsRightVariables(new List<string>() { vars[0] })) && (expression.StartsWith(vars[0] + "=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[1] + ")=", StringComparison.Ordinal) || !equalsExists)) && ContainsRightVariables(new List<string>() { vars[0] }))
                     {
-                        variables.used = VariablesUsed.TWO;
-                        variables.names = vars;
-                        simplifiedEq += "+0*" + vars[1];
+                        variablesUsed = VariablesUsed.TWO;
+                        simplifiedEq += vars[1];
+                    }
+
+                    break;
+                case 3:
+                    //4D implementation
+                    /*if (((exists[0] || exists[1] || (exists[3] && Is4D()) || ContainsRightVariables(new List<string>() { vars[0], vars[1], vars[3] })) && (expression.StartsWith(vars[2] + "=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[0] + "," + vars[1] + ")=", StringComparison.Ordinal) || !equalsExists)) && ContainsRightVariables(new List<string>() { vars[0], vars[1], vars[3] }))
+                    {
+                        variablesUsed = VariablesUsed.ONE_TWO;
+                        simplifiedEq += vars[0] + "*" + vars[1] + "*" + vars[3];
+                    }*/
+                    if (((exists[0] || exists[1] || ContainsRightVariables(new List<string>() { vars[0], vars[1] })) && (expression.StartsWith(vars[2] + "=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[0] + "," + vars[1] + ")=", StringComparison.Ordinal) || !equalsExists)) && ContainsRightVariables(new List<string>() { vars[0], vars[1] }))
+                    {
+                        variablesUsed = VariablesUsed.ONE_TWO;
+                        simplifiedEq += vars[0] + "*" + vars[1];
+                    }
+                    else if (((exists[1] || exists[2] || ContainsRightVariables(new List<string>() { vars[1], vars[2] })) && (expression.StartsWith(vars[0] + "=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[1] + "," + vars[2] + ")=", StringComparison.Ordinal) || !equalsExists)) && ContainsRightVariables(new List<string>() { vars[1], vars[2] }))
+                    {
+                        variablesUsed = VariablesUsed.TWO_THREE;
+                        simplifiedEq += vars[1] + "*" + vars[2];
+                    }
+                    else if (((exists[2] || exists[0] || ContainsRightVariables(new List<string>() { vars[2], vars[0] })) && (expression.StartsWith(vars[1] + "=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[2] + "," + vars[0] + ")=", StringComparison.Ordinal) || !equalsExists)) && ContainsRightVariables(new List<string>() { vars[2], vars[0] }))
+                    {
+                        variablesUsed = VariablesUsed.ONE_THREE;
+                        simplifiedEq += vars[2] + "*" + vars[0];
                     }
 
                     break;
                 default:
-                    if (((exists[0] || exists[1] || (exists[3] && Is4D()) || ContainsRightVariables(new List<string>() { vars[0], vars[1], vars[3] })) && (expression.StartsWith(vars[2] + "=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[0] + "," + vars[1] + ")=", StringComparison.Ordinal) || !equalsExists)) && ContainsRightVariables(new List<string>() { vars[0], vars[1], vars[3] }))
-                    {
-                        variables.used = VariablesUsed.ONE_TWO;
-                        variables.names = vars;
-                        simplifiedEq += "+0*" + vars[0] + "*" + vars[1] + "*" + vars[3];
-                    }
-                    else if (((exists[1] || exists[2] || (exists[3] && Is4D()) || ContainsRightVariables(new List<string>() { vars[1], vars[2], vars[3] })) && (expression.StartsWith(vars[0] + "=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[1] + "," + vars[2] + ")=", StringComparison.Ordinal) || !equalsExists)) && ContainsRightVariables(new List<string>() { vars[1], vars[2], vars[3] }))
-                    {
-                        variables.used = VariablesUsed.TWO_THREE;
-                        variables.names = vars;
-                        simplifiedEq += "+0*" + vars[1] + "*" + vars[2] + "*" + vars[3];
-                    }
-                    else if (((exists[2] || exists[0] || (exists[3] && Is4D()) || ContainsRightVariables(new List<string>() { vars[2], vars[0], vars[3] })) && (expression.StartsWith(vars[1] + "=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[2] + "," + vars[0] + ")=", StringComparison.Ordinal) || !equalsExists)) && ContainsRightVariables(new List<string>() { vars[2], vars[0], vars[3] }))
-                    {
-                        variables.used = VariablesUsed.ONE_THREE;
-                        variables.names = vars;
-                        simplifiedEq += "+0*" + vars[2] + "*" + vars[0] + "*" + vars[3];
-                    }
-
-                    break;
+                    RhinoApp.WriteLine("Dimension outside scope of program. Accepted values are 2, 3, and 4.");
+                    return false;
             }
-
+            
             expression = simplifiedEq;
 
-            return true;
+            for (int i = 0; i < dimension; i++)
+                this.vars.Add(vars[i], bounds[i]);
+
+            return ValidExpression(new Expression(expression));
         }
 
+        /// <summary>
+        /// Checks to see if the expression is valid.
+        /// </summary>
         private bool ValidVariables(List<string> vars)
         {
             return ContainsRightVariables(vars) || !ContainsWrongVariables(vars);
         }
 
+        /// <summary>
+        /// Looks to see if valid vairables exist in expression.
+        /// </summary>
         private bool ContainsRightVariables(List<string> vars)
         {
             foreach (string v in vars)
@@ -443,6 +510,9 @@ namespace PlotEquation
             return false;
         }
 
+        /// <summary>
+        /// Checks for letters that shouldn't be there.
+        /// </summary>
         private bool ContainsWrongVariables(List<string> vars)
         {
             string eq = expression;
@@ -457,17 +527,8 @@ namespace PlotEquation
             foreach (string v in vars)
                 if (eq.Contains(v))
                     eq = eq.Replace(v, "");
-            
-            return CheckForBadVar(eq.ToCharArray());
-        }
 
-        /// <summary>
-        /// Removes the substrings that are mathematical functions from
-        /// equation; used for variable checking.
-        /// </summary>
-        private bool CheckForBadVar(char[] eq)
-        {
-            foreach (char c in eq)
+            foreach (char c in eq.ToCharArray())
                 if (c >= 'a' && c <= 'z')
                     return true;
 
@@ -524,7 +585,7 @@ namespace PlotEquation
         /// </summary>
         public override string ToString()
         {
-            return equationType + " Equation:\n\t\"" + expression + "\"\n";
+            return dimension + "D " + equationType + " Equation:\n\t\"" + expression + "\"\n";
         }
         
         /// <summary>
@@ -532,12 +593,12 @@ namespace PlotEquation
         /// </summary>
         public override void Generate()
         {
-            if (DetermineEquationType() && ValidExpression(new Expression(expression)))
+            if (success)
             {
 
             }
             else
-                RhinoApp.WriteLine("Failed to generate equation. Please input a non-empty equation with valid variables.");
+                RhinoApp.WriteLine("Unable to generate equation.");
         }
     }
 }
