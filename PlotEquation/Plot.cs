@@ -38,17 +38,236 @@ namespace PlotEquation
         /// </summary>
         public struct RhinoObjects
         {
-            List<Point3d> points;
-            List<List<Point3d>> grid;
-            List<Curve> lines;
-            List<Curve> curves;
-            List<List<Curve>> triframe;
-            List<List<Curve>> wireframe;
-            List<Surface> triangles;
-            List<Surface> quads;
-            List<Surface> surfaces;
+            public List<Point3d> points;
+            public List<List<Point3d>> grid;
+            public List<Curve> lines;
+            public List<Curve> curves;
+            public List<List<Curve>> triframe;
+            public List<List<Curve>> wireframe;
+            public List<Surface> triangles;
+            public List<Surface> quads;
+            public List<Surface> surfaces;
+        }
+
+        /// <summary>
+        /// Point object with three components.
+        /// </summary>
+        public struct Point
+        {
+            public double X;
+            public double Y;
+            public double Z;
+
+            public Point(double X, double Y)
+            {
+                this.X = X;
+                this.Y = Y;
+                Z = 0;
+            }
+            public Point(double X, double Y, double Z)
+            {
+                this.X = X;
+                this.Y = Y;
+                this.Z = Z;
+            }
+
+            public override string ToString()
+            {
+                return (System.String.Format("({0}, {1}, {2})", X, Y, Z));
+            }
+
+            public override int GetHashCode()
+            {
+                return X.GetHashCode() ^ Y.GetHashCode() ^ Z.GetHashCode();
+            }
+
+            public override bool Equals(object obj)
+            {
+                return this == (Point)obj;
+            }
+
+            public static bool operator ==(Point a, Point b)
+            {
+                return a.X.Equals(b.X) && a.Y.Equals(b.Y) && a.Z.Equals(b.Z);
+            }
+
+            public static bool operator !=(Point a, Point b)
+            {
+                return !(a == b);
+            }
+
+            public static Point operator +(Point a, Point b)
+            {
+                return new Point(a.X + b.X, a.Y + b.Y, a.Z + b.Z);
+            }
+
+            public static Point operator *(double d, Point p)
+            {
+                return new Point(d * p.X, d * p.Y, d * p.Z);
+            }
         }
         
+        /// <summary>
+        /// 2D list of points in 3D space.
+        /// </summary>
+        public struct Grid
+        {
+            public List<List<Point>> points;
+
+            public Grid(List<List<Point>> points)
+            {
+                this.points = points;
+            }
+
+            public List<Point> this[int index]
+            {
+                get { return points[index]; }
+
+                set { points[index] = value; }
+            }
+
+            /// <summary>
+            /// Creates a Grid from a Wirefram object.
+            /// </summary>
+            public void FromWireframe(Wireframe wireframe)
+            {
+                points = new List<List<Point>>();
+                var polylines = (wireframe.uCurves.Count == 0) ? wireframe.vCurves : wireframe.uCurves;
+
+                foreach (List<Line> polyline in polylines)
+                {
+                    var p = new List<Point>();
+
+                    p.Add(polyline[0].start);
+
+                    foreach (Line line in polyline)
+                        p.Add(line.end);
+
+                    points.Add(p);
+                }
+            }
+        }
+
+        /// <summary>
+        /// An object that represents the line between two points.
+        /// </summary>
+        public struct Line
+        {
+            public Point start;
+            public Point end;
+
+            public Line(Point a, Point b)
+            {
+                start = a;
+                end = b;
+            }
+
+            public override string ToString()
+            {
+                return string.Format("[Line Start={0}, End={1}]", start, end);
+            }
+
+            public override int GetHashCode()
+            {
+                return start.GetHashCode() ^ end.GetHashCode();
+            }
+
+            public override bool Equals(object obj)
+            {
+                return this == (Line)obj;
+            }
+
+            public static bool operator ==(Line a, Line b)
+            {
+                return (a.start.Equals(b.start) && a.end.Equals(b.end));
+            }
+
+            public static bool operator !=(Line a, Line b)
+            {
+                return !(a == b);
+            }
+
+            /// <summary>
+            /// Finds the midpoint of the line.
+            /// </summary>
+            public Point Midpoint()
+            {
+                return new Point((start.X + end.X) / 2, (start.Y + end.Y) / 2, (start.Z + end.Z) / 2);
+            }
+        }
+
+        /// <summary>
+        /// A 2D grid of lines in 3D space.
+        /// </summary>
+        public struct Wireframe
+        {
+            public List<List<Line>> uCurves;
+            public List<List<Line>> vCurves;
+
+            public Wireframe(List<List<Line>> u, List<List<Line>> v)
+            {
+                uCurves = u;
+                vCurves = v;
+            }
+
+            public List<Point> ToPoints()
+            {
+                var polylines = (uCurves.Count == 0) ? vCurves : uCurves;
+                var points = new List<Point>();
+
+                points.Add(polylines[0][0].start);
+
+                foreach (List<Line> polyline in polylines)
+                    foreach (Line line in polyline)
+                        points.Add(line.end);
+
+                return points;
+            }
+
+            public List<Line> ToLines()
+            {
+                var lines = new List<Line>();
+
+                foreach (List<Line> polyline in uCurves)
+                    lines.AddRange(polyline);
+                foreach (List<Line> polyline in vCurves)
+                    lines.AddRange(polyline);
+
+                return lines;
+            }
+
+            public void MakeUFromV()
+            {
+                uCurves = new List<List<Line>>();
+
+                for (int i = 0; i < vCurves[0].Count; i++)
+                {
+                    var polyline = new List<Line>();
+
+                    for (int e = 0; e < vCurves.Count; e++)
+                        polyline.Add(vCurves[e][i]);
+
+                    uCurves.Add(polyline);
+                }
+            }
+
+            public void MakeVFromU()
+            {
+                vCurves = new List<List<Line>>();
+
+                for (int i = 0; i < uCurves[0].Count; i++)
+                {
+                    var polyline = new List<Line>();
+
+                    for (int e = 0; e < uCurves.Count; e++)
+                        polyline.Add(uCurves[e][i]);
+
+                    vCurves.Add(polyline);
+                }
+            }
+        }
+
+
         // CREATE PLOT TYPES (point, grid, line, triframe, wirefram, triangle, quad);
         // CONVERT THEM TO RHINO OBJECTS
 
