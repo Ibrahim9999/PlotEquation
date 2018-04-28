@@ -42,7 +42,6 @@ namespace PlotEquation
             public List<List<Point3d>> grid;
             public List<Curve> lines;
             public List<Curve> curves;
-            public List<List<Curve>> triframe;
             public List<List<Curve>> wireframe;
             public List<Surface> triangles;
             public List<Surface> quads;
@@ -267,8 +266,149 @@ namespace PlotEquation
             }
         }
 
+        /// <summary>
+        /// A collection of 3D points that represent verticies of a triangle.
+        /// </summary>
+        public struct Triangle
+        {
+            public Point[] verticies;
 
-        // CREATE PLOT TYPES (point, grid, line, triframe, wirefram, triangle, quad);
+            public Triangle(Point a, Point b, Point c)
+            {
+                verticies = new Point[3];
+
+                verticies[0] = a;
+                verticies[1] = b;
+                verticies[2] = c;
+            }
+
+            public Point this[int index]
+            {
+                get { return verticies[index]; }
+
+                set { verticies[index] = value; }
+            }
+        }
+
+        /// <summary>
+        /// A collection of 3D points that represent verticies of a quad.
+        /// </summary>
+        public struct Quad
+        {
+            public Point[] verticies;
+
+            public Quad(Point a, Point b, Point c, Point d)
+            {
+                verticies = new Point[4];
+
+                verticies[0] = a;
+                verticies[1] = b;
+                verticies[2] = c;
+                verticies[3] = d;
+            }
+
+            public Point this[int index]
+            {
+                get { return verticies[index]; }
+
+                set { verticies[index] = value; }
+            }
+        }
+
+        /// <summary>
+        /// A collection of Triangles that represent a mesh.
+        /// </summary>
+        public struct TriangleMesh
+        {
+            public List<Triangle> triangles;
+
+            public TriangleMesh(List<Triangle> mesh)
+            {
+                triangles = mesh;
+            }
+
+            public Triangle this[int index]
+            {
+                get { return triangles[index]; }
+
+                set { triangles[index] = value; }
+            }
+
+            public int Count
+            {
+                get { return triangles.Count; }
+            }
+
+            public void MakeFromWireframe(Wireframe wireframe)
+            {
+                triangles = new List<Triangle>();
+                var polylines = (wireframe.uCurves.Count == 0) ? wireframe.vCurves : wireframe.uCurves;
+
+                for (int i = 1; i < polylines.Count; i++)
+                    for (int e = 1; e < polylines[i].Count; e++)
+                    {
+                        triangles.Add(new Triangle(polylines[i - 1][e - 1].end, polylines[i][e - 1].end, polylines[i][e].end));
+                        triangles.Add(new Triangle(polylines[i - 1][e - 1].end, polylines[i][e].end, polylines[i - 1][e].end));
+                    }
+            }
+
+            public void MakeFromQuadMesh(QuadMesh mesh)
+            {
+                triangles = new List<Triangle>();
+
+                for (int i = 1; i < mesh.Count; i++)
+                {
+                    triangles.Add(new Triangle(mesh[i][0], mesh[i][1], mesh[i][2]));
+                    triangles.Add(new Triangle(mesh[i][0], mesh[i][3], mesh[i][2]));
+                }
+
+            }
+        }
+
+        /// <summary>
+        /// A collection of Quads that represent a mesh.
+        /// </summary>
+        public struct QuadMesh
+        {
+            public List<Quad> quads;
+
+            public QuadMesh(List<Quad> mesh)
+            {
+                quads = mesh;
+            }
+
+            public Quad this[int index]
+            {
+                get { return quads[index]; }
+
+                set { quads[index] = value; }
+            }
+
+            public int Count
+            {
+                get { return quads.Count; }
+            }
+
+            public void MakeFromWireframe(Wireframe wireframe)
+            {
+                quads = new List<Quad>();
+                var polylines = (wireframe.uCurves.Count == 0) ? wireframe.vCurves : wireframe.uCurves;
+
+                for (int i = 1; i < polylines.Count; i++)
+                    for (int e = 1; e < polylines[i].Count; e++)
+                        quads.Add(new Quad(polylines[i - 1][e - 1].end, polylines[i][e - 1].end, polylines[i][e].end, polylines[i - 1][e].end));
+            }
+
+            public void MakeFromTriangleMesh(TriangleMesh mesh)
+            {
+                quads = new List<Quad>();
+
+                for (int i = 0; i < mesh.Count; i += 2)
+                    quads.Add(new Quad(mesh[i][0], mesh[i][1], mesh[i][2], mesh[i + 1][1]));
+            }
+        }
+
+        
         // CONVERT THEM TO RHINO OBJECTS
 
         /// <summary>
