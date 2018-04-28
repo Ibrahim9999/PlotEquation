@@ -26,6 +26,372 @@ namespace PlotEquation
     public abstract class Plot
     {
         /// <summary>
+        /// Contains all the base types of 3D objects Plot can use.
+        /// </summary>
+        public class Objects
+        {
+            /// <summary>
+            /// Point object with three components.
+            /// </summary>
+            public struct Point
+            {
+                public double X;
+                public double Y;
+                public double Z;
+
+                public Point(double X, double Y)
+                {
+                    this.X = X;
+                    this.Y = Y;
+                    Z = 0;
+                }
+                public Point(double X, double Y, double Z)
+                {
+                    this.X = X;
+                    this.Y = Y;
+                    this.Z = Z;
+                }
+
+                public override string ToString()
+                {
+                    return (System.String.Format("({0}, {1}, {2})", X, Y, Z));
+                }
+
+                public override int GetHashCode()
+                {
+                    return X.GetHashCode() ^ Y.GetHashCode() ^ Z.GetHashCode();
+                }
+
+                public override bool Equals(object obj)
+                {
+                    return this == (Point)obj;
+                }
+
+                public static bool operator ==(Point a, Point b)
+                {
+                    return a.X.Equals(b.X) && a.Y.Equals(b.Y) && a.Z.Equals(b.Z);
+                }
+
+                public static bool operator !=(Point a, Point b)
+                {
+                    return !(a == b);
+                }
+
+                public static Point operator +(Point a, Point b)
+                {
+                    return new Point(a.X + b.X, a.Y + b.Y, a.Z + b.Z);
+                }
+
+                public static Point operator *(double d, Point p)
+                {
+                    return new Point(d * p.X, d * p.Y, d * p.Z);
+                }
+            }
+        
+            /// <summary>
+            /// 2D list of points in 3D space.
+            /// </summary>
+            public struct Grid
+            {
+                public List<List<Point>> points;
+
+                public Grid(List<List<Point>> points)
+                {
+                    this.points = points;
+                }
+
+                public List<Point> this[int index]
+                {
+                    get { return points[index]; }
+
+                    set { points[index] = value; }
+                }
+
+                /// <summary>
+                /// Creates a Grid from a Wirefram object.
+                /// </summary>
+                public void FromWireframe(Wireframe wireframe)
+                {
+                    points = new List<List<Point>>();
+                    var polylines = (wireframe.uCurves.Count == 0) ? wireframe.vCurves : wireframe.uCurves;
+
+                    foreach (List<Line> polyline in polylines)
+                    {
+                        var p = new List<Point>();
+
+                        p.Add(polyline[0].start);
+
+                        foreach (Line line in polyline)
+                            p.Add(line.end);
+
+                        points.Add(p);
+                    }
+                }
+            }
+
+            /// <summary>
+            /// An object that represents the line between two points.
+            /// </summary>
+            public struct Line
+            {
+                public Point start;
+                public Point end;
+
+                public Line(Point a, Point b)
+                {
+                    start = a;
+                    end = b;
+                }
+
+                public override string ToString()
+                {
+                    return string.Format("[Line Start={0}, End={1}]", start, end);
+                }
+
+                public override int GetHashCode()
+                {
+                    return start.GetHashCode() ^ end.GetHashCode();
+                }
+
+                public override bool Equals(object obj)
+                {
+                    return this == (Line)obj;
+                }
+
+                public static bool operator ==(Line a, Line b)
+                {
+                    return (a.start.Equals(b.start) && a.end.Equals(b.end));
+                }
+
+                public static bool operator !=(Line a, Line b)
+                {
+                    return !(a == b);
+                }
+
+                /// <summary>
+                /// Finds the midpoint of the line.
+                /// </summary>
+                public Point Midpoint()
+                {
+                    return new Point((start.X + end.X) / 2, (start.Y + end.Y) / 2, (start.Z + end.Z) / 2);
+                }
+            }
+
+            /// <summary>
+            /// A 2D grid of lines in 3D space.
+            /// </summary>
+            public struct Wireframe
+            {
+                public List<List<Line>> uCurves;
+                public List<List<Line>> vCurves;
+
+                public Wireframe(List<List<Line>> u, List<List<Line>> v)
+                {
+                    uCurves = u;
+                    vCurves = v;
+                }
+
+                public List<Point> ToPoints()
+                {
+                    var polylines = (uCurves.Count == 0) ? vCurves : uCurves;
+                    var points = new List<Point>();
+
+                    points.Add(polylines[0][0].start);
+
+                    foreach (List<Line> polyline in polylines)
+                        foreach (Line line in polyline)
+                            points.Add(line.end);
+
+                    return points;
+                }
+
+                public List<Line> ToLines()
+                {
+                    var lines = new List<Line>();
+
+                    foreach (List<Line> polyline in uCurves)
+                        lines.AddRange(polyline);
+                    foreach (List<Line> polyline in vCurves)
+                        lines.AddRange(polyline);
+
+                    return lines;
+                }
+
+                public void MakeUFromV()
+                {
+                    uCurves = new List<List<Line>>();
+
+                    for (int i = 0; i < vCurves[0].Count; i++)
+                    {
+                        var polyline = new List<Line>();
+
+                        for (int e = 0; e < vCurves.Count; e++)
+                            polyline.Add(vCurves[e][i]);
+
+                        uCurves.Add(polyline);
+                    }
+                }
+
+                public void MakeVFromU()
+                {
+                    vCurves = new List<List<Line>>();
+
+                    for (int i = 0; i < uCurves[0].Count; i++)
+                    {
+                        var polyline = new List<Line>();
+
+                        for (int e = 0; e < uCurves.Count; e++)
+                            polyline.Add(uCurves[e][i]);
+
+                        vCurves.Add(polyline);
+                    }
+                }
+            }
+
+            /// <summary>
+            /// A collection of 3D points that represent verticies of a triangle.
+            /// </summary>
+            public struct Triangle
+            {
+                public Point[] verticies;
+
+                public Triangle(Point a, Point b, Point c)
+                {
+                    verticies = new Point[3];
+
+                    verticies[0] = a;
+                    verticies[1] = b;
+                    verticies[2] = c;
+                }
+
+                public Point this[int index]
+                {
+                    get { return verticies[index]; }
+
+                    set { verticies[index] = value; }
+                }
+            }
+
+            /// <summary>
+            /// A collection of 3D points that represent verticies of a quad.
+            /// </summary>
+            public struct Quad
+            {
+                public Point[] verticies;
+
+                public Quad(Point a, Point b, Point c, Point d)
+                {
+                    verticies = new Point[4];
+
+                    verticies[0] = a;
+                    verticies[1] = b;
+                    verticies[2] = c;
+                    verticies[3] = d;
+                }
+
+                public Point this[int index]
+                {
+                    get { return verticies[index]; }
+
+                    set { verticies[index] = value; }
+                }
+            }
+
+            /// <summary>
+            /// A collection of Triangles that represent a mesh.
+            /// </summary>
+            public struct TriangleMesh
+            {
+                public List<Triangle> triangles;
+
+                public TriangleMesh(List<Triangle> mesh)
+                {
+                    triangles = mesh;
+                }
+
+                public Triangle this[int index]
+                {
+                    get { return triangles[index]; }
+
+                    set { triangles[index] = value; }
+                }
+
+                public int Count
+                {
+                    get { return triangles.Count; }
+                }
+
+                public void MakeFromWireframe(Wireframe wireframe)
+                {
+                    triangles = new List<Triangle>();
+                    var polylines = (wireframe.uCurves.Count == 0) ? wireframe.vCurves : wireframe.uCurves;
+
+                    for (int i = 1; i < polylines.Count; i++)
+                        for (int e = 1; e < polylines[i].Count; e++)
+                        {
+                            triangles.Add(new Triangle(polylines[i - 1][e - 1].end, polylines[i][e - 1].end, polylines[i][e].end));
+                            triangles.Add(new Triangle(polylines[i - 1][e - 1].end, polylines[i][e].end, polylines[i - 1][e].end));
+                        }
+                }
+
+                public void MakeFromQuadMesh(QuadMesh mesh)
+                {
+                    triangles = new List<Triangle>();
+
+                    for (int i = 1; i < mesh.Count; i++)
+                    {
+                        triangles.Add(new Triangle(mesh[i][0], mesh[i][1], mesh[i][2]));
+                        triangles.Add(new Triangle(mesh[i][0], mesh[i][3], mesh[i][2]));
+                    }
+
+                }
+            }
+
+            /// <summary>
+            /// A collection of Quads that represent a mesh.
+            /// </summary>
+            public struct QuadMesh
+            {
+                public List<Quad> quads;
+
+                public QuadMesh(List<Quad> mesh)
+                {
+                    quads = mesh;
+                }
+
+                public Quad this[int index]
+                {
+                    get { return quads[index]; }
+
+                    set { quads[index] = value; }
+                }
+
+                public int Count
+                {
+                    get { return quads.Count; }
+                }
+
+                public void MakeFromWireframe(Wireframe wireframe)
+                {
+                    quads = new List<Quad>();
+                    var polylines = (wireframe.uCurves.Count == 0) ? wireframe.vCurves : wireframe.uCurves;
+
+                    for (int i = 1; i < polylines.Count; i++)
+                        for (int e = 1; e < polylines[i].Count; e++)
+                            quads.Add(new Quad(polylines[i - 1][e - 1].end, polylines[i][e - 1].end, polylines[i][e].end, polylines[i - 1][e].end));
+                }
+
+                public void MakeFromTriangleMesh(TriangleMesh mesh)
+                {
+                    quads = new List<Quad>();
+
+                    for (int i = 0; i < mesh.Count; i += 2)
+                        quads.Add(new Quad(mesh[i][0], mesh[i][1], mesh[i][2], mesh[i + 1][1]));
+                }
+            }
+        }
+
+        /// <summary>
         /// Contains all the types of mathematical objects that can be plotted.
         /// </summary>
         public enum Type
@@ -47,367 +413,6 @@ namespace PlotEquation
             public List<Surface> quads;
             public List<Surface> surfaces;
         }
-
-        /// <summary>
-        /// Point object with three components.
-        /// </summary>
-        public struct Point
-        {
-            public double X;
-            public double Y;
-            public double Z;
-
-            public Point(double X, double Y)
-            {
-                this.X = X;
-                this.Y = Y;
-                Z = 0;
-            }
-            public Point(double X, double Y, double Z)
-            {
-                this.X = X;
-                this.Y = Y;
-                this.Z = Z;
-            }
-
-            public override string ToString()
-            {
-                return (System.String.Format("({0}, {1}, {2})", X, Y, Z));
-            }
-
-            public override int GetHashCode()
-            {
-                return X.GetHashCode() ^ Y.GetHashCode() ^ Z.GetHashCode();
-            }
-
-            public override bool Equals(object obj)
-            {
-                return this == (Point)obj;
-            }
-
-            public static bool operator ==(Point a, Point b)
-            {
-                return a.X.Equals(b.X) && a.Y.Equals(b.Y) && a.Z.Equals(b.Z);
-            }
-
-            public static bool operator !=(Point a, Point b)
-            {
-                return !(a == b);
-            }
-
-            public static Point operator +(Point a, Point b)
-            {
-                return new Point(a.X + b.X, a.Y + b.Y, a.Z + b.Z);
-            }
-
-            public static Point operator *(double d, Point p)
-            {
-                return new Point(d * p.X, d * p.Y, d * p.Z);
-            }
-        }
-        
-        /// <summary>
-        /// 2D list of points in 3D space.
-        /// </summary>
-        public struct Grid
-        {
-            public List<List<Point>> points;
-
-            public Grid(List<List<Point>> points)
-            {
-                this.points = points;
-            }
-
-            public List<Point> this[int index]
-            {
-                get { return points[index]; }
-
-                set { points[index] = value; }
-            }
-
-            /// <summary>
-            /// Creates a Grid from a Wirefram object.
-            /// </summary>
-            public void FromWireframe(Wireframe wireframe)
-            {
-                points = new List<List<Point>>();
-                var polylines = (wireframe.uCurves.Count == 0) ? wireframe.vCurves : wireframe.uCurves;
-
-                foreach (List<Line> polyline in polylines)
-                {
-                    var p = new List<Point>();
-
-                    p.Add(polyline[0].start);
-
-                    foreach (Line line in polyline)
-                        p.Add(line.end);
-
-                    points.Add(p);
-                }
-            }
-        }
-
-        /// <summary>
-        /// An object that represents the line between two points.
-        /// </summary>
-        public struct Line
-        {
-            public Point start;
-            public Point end;
-
-            public Line(Point a, Point b)
-            {
-                start = a;
-                end = b;
-            }
-
-            public override string ToString()
-            {
-                return string.Format("[Line Start={0}, End={1}]", start, end);
-            }
-
-            public override int GetHashCode()
-            {
-                return start.GetHashCode() ^ end.GetHashCode();
-            }
-
-            public override bool Equals(object obj)
-            {
-                return this == (Line)obj;
-            }
-
-            public static bool operator ==(Line a, Line b)
-            {
-                return (a.start.Equals(b.start) && a.end.Equals(b.end));
-            }
-
-            public static bool operator !=(Line a, Line b)
-            {
-                return !(a == b);
-            }
-
-            /// <summary>
-            /// Finds the midpoint of the line.
-            /// </summary>
-            public Point Midpoint()
-            {
-                return new Point((start.X + end.X) / 2, (start.Y + end.Y) / 2, (start.Z + end.Z) / 2);
-            }
-        }
-
-        /// <summary>
-        /// A 2D grid of lines in 3D space.
-        /// </summary>
-        public struct Wireframe
-        {
-            public List<List<Line>> uCurves;
-            public List<List<Line>> vCurves;
-
-            public Wireframe(List<List<Line>> u, List<List<Line>> v)
-            {
-                uCurves = u;
-                vCurves = v;
-            }
-
-            public List<Point> ToPoints()
-            {
-                var polylines = (uCurves.Count == 0) ? vCurves : uCurves;
-                var points = new List<Point>();
-
-                points.Add(polylines[0][0].start);
-
-                foreach (List<Line> polyline in polylines)
-                    foreach (Line line in polyline)
-                        points.Add(line.end);
-
-                return points;
-            }
-
-            public List<Line> ToLines()
-            {
-                var lines = new List<Line>();
-
-                foreach (List<Line> polyline in uCurves)
-                    lines.AddRange(polyline);
-                foreach (List<Line> polyline in vCurves)
-                    lines.AddRange(polyline);
-
-                return lines;
-            }
-
-            public void MakeUFromV()
-            {
-                uCurves = new List<List<Line>>();
-
-                for (int i = 0; i < vCurves[0].Count; i++)
-                {
-                    var polyline = new List<Line>();
-
-                    for (int e = 0; e < vCurves.Count; e++)
-                        polyline.Add(vCurves[e][i]);
-
-                    uCurves.Add(polyline);
-                }
-            }
-
-            public void MakeVFromU()
-            {
-                vCurves = new List<List<Line>>();
-
-                for (int i = 0; i < uCurves[0].Count; i++)
-                {
-                    var polyline = new List<Line>();
-
-                    for (int e = 0; e < uCurves.Count; e++)
-                        polyline.Add(uCurves[e][i]);
-
-                    vCurves.Add(polyline);
-                }
-            }
-        }
-
-        /// <summary>
-        /// A collection of 3D points that represent verticies of a triangle.
-        /// </summary>
-        public struct Triangle
-        {
-            public Point[] verticies;
-
-            public Triangle(Point a, Point b, Point c)
-            {
-                verticies = new Point[3];
-
-                verticies[0] = a;
-                verticies[1] = b;
-                verticies[2] = c;
-            }
-
-            public Point this[int index]
-            {
-                get { return verticies[index]; }
-
-                set { verticies[index] = value; }
-            }
-        }
-
-        /// <summary>
-        /// A collection of 3D points that represent verticies of a quad.
-        /// </summary>
-        public struct Quad
-        {
-            public Point[] verticies;
-
-            public Quad(Point a, Point b, Point c, Point d)
-            {
-                verticies = new Point[4];
-
-                verticies[0] = a;
-                verticies[1] = b;
-                verticies[2] = c;
-                verticies[3] = d;
-            }
-
-            public Point this[int index]
-            {
-                get { return verticies[index]; }
-
-                set { verticies[index] = value; }
-            }
-        }
-
-        /// <summary>
-        /// A collection of Triangles that represent a mesh.
-        /// </summary>
-        public struct TriangleMesh
-        {
-            public List<Triangle> triangles;
-
-            public TriangleMesh(List<Triangle> mesh)
-            {
-                triangles = mesh;
-            }
-
-            public Triangle this[int index]
-            {
-                get { return triangles[index]; }
-
-                set { triangles[index] = value; }
-            }
-
-            public int Count
-            {
-                get { return triangles.Count; }
-            }
-
-            public void MakeFromWireframe(Wireframe wireframe)
-            {
-                triangles = new List<Triangle>();
-                var polylines = (wireframe.uCurves.Count == 0) ? wireframe.vCurves : wireframe.uCurves;
-
-                for (int i = 1; i < polylines.Count; i++)
-                    for (int e = 1; e < polylines[i].Count; e++)
-                    {
-                        triangles.Add(new Triangle(polylines[i - 1][e - 1].end, polylines[i][e - 1].end, polylines[i][e].end));
-                        triangles.Add(new Triangle(polylines[i - 1][e - 1].end, polylines[i][e].end, polylines[i - 1][e].end));
-                    }
-            }
-
-            public void MakeFromQuadMesh(QuadMesh mesh)
-            {
-                triangles = new List<Triangle>();
-
-                for (int i = 1; i < mesh.Count; i++)
-                {
-                    triangles.Add(new Triangle(mesh[i][0], mesh[i][1], mesh[i][2]));
-                    triangles.Add(new Triangle(mesh[i][0], mesh[i][3], mesh[i][2]));
-                }
-
-            }
-        }
-
-        /// <summary>
-        /// A collection of Quads that represent a mesh.
-        /// </summary>
-        public struct QuadMesh
-        {
-            public List<Quad> quads;
-
-            public QuadMesh(List<Quad> mesh)
-            {
-                quads = mesh;
-            }
-
-            public Quad this[int index]
-            {
-                get { return quads[index]; }
-
-                set { quads[index] = value; }
-            }
-
-            public int Count
-            {
-                get { return quads.Count; }
-            }
-
-            public void MakeFromWireframe(Wireframe wireframe)
-            {
-                quads = new List<Quad>();
-                var polylines = (wireframe.uCurves.Count == 0) ? wireframe.vCurves : wireframe.uCurves;
-
-                for (int i = 1; i < polylines.Count; i++)
-                    for (int e = 1; e < polylines[i].Count; e++)
-                        quads.Add(new Quad(polylines[i - 1][e - 1].end, polylines[i][e - 1].end, polylines[i][e].end, polylines[i - 1][e].end));
-            }
-
-            public void MakeFromTriangleMesh(TriangleMesh mesh)
-            {
-                quads = new List<Quad>();
-
-                for (int i = 0; i < mesh.Count; i += 2)
-                    quads.Add(new Quad(mesh[i][0], mesh[i][1], mesh[i][2], mesh[i + 1][1]));
-            }
-        }
-
         
         // CONVERT THEM TO RHINO OBJECTS
 
