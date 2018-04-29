@@ -8,20 +8,7 @@ using System.Linq;
 namespace PlotEquation
 {
     /// <summary>
-    /// Contains the different ways mathematical objects can be graphed.
-    /// </summary>
-    /// <remarks>
-    /// Curves is not listed here because all objects are generated from a
-    /// group of points, which are grouped into lines, and curves are made
-    /// from a group of lines.
-    /// </remarks>
-    public enum DisplayType
-    {
-        NONE = 0, POINTS, LINES, TRIANGLES, QUADS, SURFACE
-    }
-
-    /// <summary>
-    /// Base mathematical object class.
+    /// Base mathematical object class for PlotEquation.
     /// </summary>
     public abstract class Plot
     {
@@ -82,9 +69,29 @@ namespace PlotEquation
                     return new Point(a.X + b.X, a.Y + b.Y, a.Z + b.Z);
                 }
 
+                public static Point operator -(Point a, Point b)
+                {
+                    return new Point(a.X - b.X, a.Y - b.Y, a.Z - b.Z);
+                }
+
                 public static Point operator *(double d, Point p)
                 {
                     return new Point(d * p.X, d * p.Y, d * p.Z);
+                }
+
+                public static Point operator /(Point p, double d)
+                {
+                    return new Point(p.X / d, p.Y / d, p.Z / d);
+                }
+
+                public static Point operator /(double d, Point p)
+                {
+                    return new Point(d / p.X, d / p.Y, d / p.Z);
+                }
+
+                public double Magnitude()
+                {
+                    return Math.Sqrt(X * X + Y * Y + Z * Z);
                 }
             }
         
@@ -93,7 +100,7 @@ namespace PlotEquation
             /// </summary>
             public struct Grid
             {
-                public List<List<Point>> points;
+                private List<List<Point>> points;
 
                 public Grid(List<List<Point>> points)
                 {
@@ -107,12 +114,41 @@ namespace PlotEquation
                     set { points[index] = value; }
                 }
 
+                public Point this[int i, int j]
+                {
+                    get { return points[i][j]; }
+
+                    set { points[i][j] = value; }
+                }
+
+                public int Count
+                {
+                    get { return points.Count; }
+                }
+                
+                /// <summary>
+                /// Changes value of point at index in grid.
+                /// </summary>
+                public void Change(int i, int j, Point point)
+                {
+                    points[i][j] = point;
+                }
+                /// <summary>
+                /// Changes value of point at index in grid.
+                /// </summary>
+                public void Change(int i, int j, int x, int y, int z)
+                {
+                    points[i][j] = new Point(x, y, z);
+                }
+
                 /// <summary>
                 /// Creates a Grid from a Wirefram object.
                 /// </summary>
-                public void FromWireframe(Wireframe wireframe)
+                public void FromWireframe(Wireframe wireframe, bool deleteOldPoints = true)
                 {
-                    points = new List<List<Point>>();
+                    if (deleteOldPoints)
+                        points = new List<List<Point>>();
+
                     var polylines = (wireframe.uCurves.Count == 0) ? wireframe.vCurves : wireframe.uCurves;
 
                     foreach (List<Line> polyline in polylines)
@@ -153,6 +189,21 @@ namespace PlotEquation
                     return start.GetHashCode() ^ end.GetHashCode();
                 }
 
+                public Point this[int i]
+                {
+                    get
+                    {
+                        if (i == 0)
+                            return start;
+                        if (i == 1)
+                            return end;
+
+                        Point difference = end - start;
+
+                        return i * ((difference) / difference.Magnitude());
+                    }
+                }
+
                 public override bool Equals(object obj)
                 {
                     return this == (Line)obj;
@@ -178,6 +229,128 @@ namespace PlotEquation
             }
 
             /// <summary>
+            /// A list of points that represent verticies in a lines.
+            /// </summary>
+            public struct Polyline
+            {
+                private List<Point> verticies;
+
+                public Polyline(List<Point> polyline)
+                {
+                    verticies = polyline;
+                }
+
+                public Point this[int index]
+                {
+                    get { return verticies[index]; }
+
+                    set { verticies[index] = value; }
+                }
+
+                public List<Point> Verticies()
+                {
+                    return verticies;
+                }
+
+                public override int GetHashCode()
+                {
+                    return verticies.GetHashCode();
+                }
+
+                public override bool Equals(object obj)
+                {
+                    return this == (Polyline)obj;
+                }
+
+                public static bool operator ==(Polyline a, Polyline b)
+                {
+                    if (a.Count != b.Count)
+                        return false;
+
+                    for (int i = 0; i < a.Count; i++)
+                        if (a[i] != b[i])
+                            return false;
+
+                    return true;
+                }
+
+                public static bool operator !=(Polyline a, Polyline b)
+                {
+                    return !(a == b);
+                }
+
+                public int Count
+                {
+                    get { return verticies.Count; }
+                }
+                
+                /// <summary>
+                /// Converts Polyline to a list of Lines.
+                /// </summary>
+                public List<Line> ToLines()
+                {
+                    var lines = new List<Line>();
+
+                    for (int i = 1; i < verticies.Count; i++)
+                        lines.Add(new Line(verticies[i - 1], verticies[i]));
+
+                    return lines;
+                }
+
+                /// <summary>
+                /// Adds a point to verticies.
+                /// </summary>
+                public void Add(Point point)
+                {
+                    verticies.Add(point);
+                }
+                /// <summary>
+                /// Adds a line to verticies.
+                /// </summary>
+                /// <remarks>
+                /// If the new line does not connect to the existing polyline,
+                /// both the start and end points will be added to verticies.
+                /// </remarks>
+                public void Add(Line line)
+                {
+                    if (line.start != verticies.Last())
+                        verticies.Add(line.start);
+
+                    verticies.Add(line.end);
+                }
+
+                /// <summary>
+                /// Changes value of point at index.
+                /// </summary>
+                public void Change(int index, Point point)
+                {
+                    verticies[index] = point;
+                }
+                /// <summary>
+                /// Changes value of point at index.
+                /// </summary>
+                public void Change(int index, int x, int y, int z)
+                {
+                    verticies[index] = new Point(x, y, z);
+                }
+
+                /// <summary>
+                /// Removes point from verticies.
+                /// </summary>
+                public void Remove(Point point)
+                {
+                    verticies.Remove(point);
+                }
+                /// <summary>
+                /// Removes point from verticies at index.
+                /// </summary>
+                public void Remove(int index)
+                {
+                    verticies.RemoveAt(index);
+                }
+            }
+
+            /// <summary>
             /// A 2D grid of lines in 3D space.
             /// </summary>
             public struct Wireframe
@@ -191,6 +364,9 @@ namespace PlotEquation
                     vCurves = v;
                 }
 
+                /// <summary>
+                /// Converts the Wireframe into a list of points.
+                /// </summary>
                 public List<Point> ToPoints()
                 {
                     var polylines = (uCurves.Count == 0) ? vCurves : uCurves;
@@ -205,6 +381,9 @@ namespace PlotEquation
                     return points;
                 }
 
+                /// <summary>
+                /// Converts the Wireframe into a list of lines.
+                /// </summary>
                 public List<Line> ToLines()
                 {
                     var lines = new List<Line>();
@@ -217,6 +396,27 @@ namespace PlotEquation
                     return lines;
                 }
 
+                /// <summary>
+                /// Generates Wireframe from Grid.
+                /// </summary>
+                public void FromGrid(Grid grid, bool deleteOldCurves = true)
+                {
+                    if (deleteOldCurves)
+                    {
+                        uCurves = new List<List<Line>>();
+                        vCurves = new List<List<Line>>();
+                    }
+
+                    for (int i = 0; i < grid.Count; i++)
+                        for (int j = 0; j < grid[i].Count - 1; j++)
+                            uCurves[i].Add(new Line(grid[i][j], grid[i][j + 1]));
+
+                    MakeVFromU();
+                }
+                
+                /// <summary>
+                /// Generates U curves from V curves.
+                /// </summary>
                 public void MakeUFromV()
                 {
                     uCurves = new List<List<Line>>();
@@ -232,6 +432,9 @@ namespace PlotEquation
                     }
                 }
 
+                /// <summary>
+                /// Generates V curves from U curves.
+                /// </summary>
                 public void MakeVFromU()
                 {
                     vCurves = new List<List<Line>>();
@@ -253,7 +456,7 @@ namespace PlotEquation
             /// </summary>
             public struct Triangle
             {
-                public Point[] verticies;
+                private Point[] verticies;
 
                 public Triangle(Point a, Point b, Point c)
                 {
@@ -269,6 +472,21 @@ namespace PlotEquation
                     get { return verticies[index]; }
 
                     set { verticies[index] = value; }
+                }
+
+                /// <summary>
+                /// Changes vertex position in Triangle at vertexIndex.
+                /// </summary>
+                public void AdjustVertex(int vertexIndex, Point vertex)
+                {
+                    verticies[vertexIndex] = vertex;
+                }
+                /// <summary>
+                /// Changes vertex values in Triangle at vertexIndex.
+                /// </summary>
+                public void AdjustVertex(int vertexIndex, double x, double y, double z)
+                {
+                    verticies[vertexIndex] = new Point(x, y, z);
                 }
             }
 
@@ -406,15 +624,97 @@ namespace PlotEquation
         {
             public List<Point3d> points;
             public List<List<Point3d>> grid;
-            public List<Curve> lines;
             public List<Curve> curves;
             public List<List<Curve>> wireframe;
-            public List<Surface> triangles;
-            public List<Surface> quads;
+            public List<Brep> triangles;
+            public List<Brep> quads;
             public List<Surface> surfaces;
+
+            /// <summary>
+            /// Converts a Plot Point to a Rhino Point.
+            /// </summary>
+            public static Point3d PointToRhino(Objects.Point point)
+            {
+                return new Point3d(point.X, point.Y, point.Y);
+            }
+
+            /// <summary>
+            /// Converts a Plot Grid object to a list of Rhino Point3ds.
+            /// </summary>
+            public static List<List<Point3d>> GridToRhino(Objects.Grid grid)
+            {
+                List<List<Point3d>> g = new List<List<Point3d>>();
+
+                for (int i = 0; i < grid.Count; i++)
+                    for (int j = 0; j < grid[i].Count; j++)
+                        g[i][j] = PointToRhino(grid[i][j]);
+
+                return g;
+            }
+
+            /// <summary>
+            /// Converts a Plot Line to a Rhino Curve.
+            /// </summary>
+            public static Curve LineToRhino(Objects.Line line)
+            {
+                return Curve.CreateInterpolatedCurve(new List<Point3d> { PointToRhino(line.start), PointToRhino(line.end) }, 3);
+            }
+
+            /// <summary>
+            /// Converts a Plot Polyline to a Rhino Polyline.
+            /// </summary>
+            public static Polyline PolylineToRhino(Objects.Polyline polyline)
+            {
+                List<Point3d> points = new List<Point3d>();
+
+                for (int i = 0; i < polyline.Count; i++)
+                    points.Add(PointToRhino(polyline[i]));
+
+                return new Polyline(points);
+            }
+
+            /// <summary>
+            /// Converts a Plot Triangle to a Rhino Brep.
+            /// </summary>
+            public static Brep TriangleToRhino(Objects.Triangle triangle, double tolerance = .00000001)
+            {
+                return Brep.CreateFromCornerPoints(PointToRhino(triangle[0]), PointToRhino(triangle[1]), PointToRhino(triangle[2]), tolerance);
+            }
+
+            /// <summary>
+            /// Converts a Plot Quad to a Rhino Brep.
+            /// </summary>
+            public static Brep QuadToRhino(Objects.Quad quad, double tolerance = .00000001)
+            {
+                return Brep.CreateFromCornerPoints(PointToRhino(quad[0]), PointToRhino(quad[1]), PointToRhino(quad[2]), PointToRhino(quad[3]), tolerance);
+            }
+
+            /// <summary>
+            /// Converts a Plot QuadMesh object to a list of Rhino Breps.
+            /// </summary>
+            public static List<Brep> TriangleMeshToRhino(Objects.TriangleMesh mesh)
+            {
+                List<Brep> list = new List<Brep>();
+
+                for (int i = 0; i < mesh.Count; i++)
+                    list.Add(TriangleToRhino(mesh[i]));
+
+                return list;
+            }
+
+            /// <summary>
+            /// Converts a Plot QuadMesh object to a list of Rhino Breps.
+            /// </summary>
+            public static List<Brep> QuadMeshToRhino(Objects.QuadMesh mesh)
+            {
+                List<Brep> list = new List<Brep>();
+
+                for (int i = 0; i < mesh.Count; i++)
+                    list.Add(QuadToRhino(mesh[i]));
+
+                return list;
+            }
         }
-        
-        // CONVERT THEM TO RHINO OBJECTS
 
         /// <summary>
         /// Bool dictating whether plot generation is safe or not.
