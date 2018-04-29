@@ -4,6 +4,7 @@ using Rhino;
 using Rhino.Geometry;
 using NCalc;
 using System.Linq;
+using System.Collections;
 
 namespace PlotEquation
 {
@@ -151,14 +152,12 @@ namespace PlotEquation
 
                     var polylines = (wireframe.uCurves.Count == 0) ? wireframe.vCurves : wireframe.uCurves;
 
-                    foreach (List<Line> polyline in polylines)
+                    foreach (Polyline polyline in polylines)
                     {
                         var p = new List<Point>();
 
-                        p.Add(polyline[0].start);
-
-                        foreach (Line line in polyline)
-                            p.Add(line.end);
+                        foreach (Point point in polyline.Verticies)
+                            p.Add(point);
 
                         points.Add(p);
                     }
@@ -240,21 +239,23 @@ namespace PlotEquation
                     verticies = polyline;
                 }
 
+                public List<Point> Verticies => verticies;
+
+                public override int GetHashCode()
+                {
+                    return verticies.GetHashCode();
+                }
+
+                public int Count
+                {
+                    get { return verticies.Count; }
+                }
+                
                 public Point this[int index]
                 {
                     get { return verticies[index]; }
 
                     set { verticies[index] = value; }
-                }
-
-                public List<Point> Verticies()
-                {
-                    return verticies;
-                }
-
-                public override int GetHashCode()
-                {
-                    return verticies.GetHashCode();
                 }
 
                 public override bool Equals(object obj)
@@ -279,11 +280,6 @@ namespace PlotEquation
                     return !(a == b);
                 }
 
-                public int Count
-                {
-                    get { return verticies.Count; }
-                }
-                
                 /// <summary>
                 /// Converts Polyline to a list of Lines.
                 /// </summary>
@@ -355,13 +351,15 @@ namespace PlotEquation
             /// </summary>
             public struct Wireframe
             {
-                public List<List<Line>> uCurves;
-                public List<List<Line>> vCurves;
+                public List<Polyline> uCurves;
+                public List<Polyline> vCurves;
 
-                public Wireframe(List<List<Line>> u, List<List<Line>> v)
+                public Wireframe(List<Polyline> uCurves)
                 {
-                    uCurves = u;
-                    vCurves = v;
+                    this.uCurves = uCurves;
+                    vCurves = new List<Polyline>();
+
+                    MakeVFromU();
                 }
 
                 /// <summary>
@@ -372,11 +370,9 @@ namespace PlotEquation
                     var polylines = (uCurves.Count == 0) ? vCurves : uCurves;
                     var points = new List<Point>();
 
-                    points.Add(polylines[0][0].start);
-
-                    foreach (List<Line> polyline in polylines)
-                        foreach (Line line in polyline)
-                            points.Add(line.end);
+                    foreach (Polyline polyline in polylines)
+                        foreach (Point point in polyline.Verticies)
+                            points.Add(point);
 
                     return points;
                 }
@@ -388,10 +384,10 @@ namespace PlotEquation
                 {
                     var lines = new List<Line>();
 
-                    foreach (List<Line> polyline in uCurves)
-                        lines.AddRange(polyline);
-                    foreach (List<Line> polyline in vCurves)
-                        lines.AddRange(polyline);
+                    foreach (Polyline polyline in uCurves)
+                        lines.AddRange(polyline.ToLines());
+                    foreach (Polyline polyline in vCurves)
+                        lines.AddRange(polyline.ToLines());
 
                     return lines;
                 }
@@ -403,13 +399,13 @@ namespace PlotEquation
                 {
                     if (deleteOldCurves)
                     {
-                        uCurves = new List<List<Line>>();
-                        vCurves = new List<List<Line>>();
+                        uCurves = new List<Polyline>();
+                        vCurves = new List<Polyline>();
                     }
 
                     for (int i = 0; i < grid.Count; i++)
-                        for (int j = 0; j < grid[i].Count - 1; j++)
-                            uCurves[i].Add(new Line(grid[i][j], grid[i][j + 1]));
+                        for (int j = 0; j < grid[i].Count; j++)
+                            uCurves[i].Add(grid[i][j]);
 
                     MakeVFromU();
                 }
@@ -419,11 +415,11 @@ namespace PlotEquation
                 /// </summary>
                 public void MakeUFromV()
                 {
-                    uCurves = new List<List<Line>>();
+                    uCurves = new List<Polyline>();
 
                     for (int i = 0; i < vCurves[0].Count; i++)
                     {
-                        var polyline = new List<Line>();
+                        var polyline = new Polyline();
 
                         for (int e = 0; e < vCurves.Count; e++)
                             polyline.Add(vCurves[e][i]);
@@ -437,11 +433,11 @@ namespace PlotEquation
                 /// </summary>
                 public void MakeVFromU()
                 {
-                    vCurves = new List<List<Line>>();
+                    vCurves = new List<Polyline>();
 
                     for (int i = 0; i < uCurves[0].Count; i++)
                     {
-                        var polyline = new List<Line>();
+                        var polyline = new Polyline();
 
                         for (int e = 0; e < uCurves.Count; e++)
                             polyline.Add(uCurves[e][i]);
@@ -514,7 +510,7 @@ namespace PlotEquation
                     set { verticies[index] = value; }
                 }
             }
-
+            //@ Make trianglemesh and quadmesh more like lists
             /// <summary>
             /// A collection of Triangles that represent a mesh.
             /// </summary>
@@ -539,29 +535,34 @@ namespace PlotEquation
                     get { return triangles.Count; }
                 }
 
-                public void MakeFromWireframe(Wireframe wireframe)
+                public static TriangleMesh MakeFromWireframe(Wireframe wireframe)
                 {
-                    triangles = new List<Triangle>();
+                    var mesh = new TriangleMesh();
+                    mesh.triangles = new List<Triangle>();
                     var polylines = (wireframe.uCurves.Count == 0) ? wireframe.vCurves : wireframe.uCurves;
 
                     for (int i = 1; i < polylines.Count; i++)
                         for (int e = 1; e < polylines[i].Count; e++)
                         {
-                            triangles.Add(new Triangle(polylines[i - 1][e - 1].end, polylines[i][e - 1].end, polylines[i][e].end));
-                            triangles.Add(new Triangle(polylines[i - 1][e - 1].end, polylines[i][e].end, polylines[i - 1][e].end));
+                            mesh.triangles.Add(new Triangle(polylines[i - 1][e - 1], polylines[i][e - 1], polylines[i][e]));
+                            mesh.triangles.Add(new Triangle(polylines[i - 1][e - 1], polylines[i][e], polylines[i - 1][e]));
                         }
+
+                    return mesh;
                 }
 
-                public void MakeFromQuadMesh(QuadMesh mesh)
+                public static TriangleMesh MakeFromQuadMesh(QuadMesh mesh)
                 {
-                    triangles = new List<Triangle>();
+                    TriangleMesh triMesh = new TriangleMesh();
+                    triMesh.triangles = new List<Triangle>();
 
                     for (int i = 1; i < mesh.Count; i++)
                     {
-                        triangles.Add(new Triangle(mesh[i][0], mesh[i][1], mesh[i][2]));
-                        triangles.Add(new Triangle(mesh[i][0], mesh[i][3], mesh[i][2]));
+                        triMesh.triangles.Add(new Triangle(mesh[i][0], mesh[i][1], mesh[i][2]));
+                        triMesh.triangles.Add(new Triangle(mesh[i][0], mesh[i][3], mesh[i][2]));
                     }
 
+                    return triMesh;
                 }
             }
 
@@ -589,22 +590,28 @@ namespace PlotEquation
                     get { return quads.Count; }
                 }
 
-                public void MakeFromWireframe(Wireframe wireframe)
+                public static QuadMesh MakeFromWireframe(Wireframe wireframe)
                 {
-                    quads = new List<Quad>();
+                    QuadMesh mesh = new QuadMesh();
+                    mesh.quads = new List<Quad>();
                     var polylines = (wireframe.uCurves.Count == 0) ? wireframe.vCurves : wireframe.uCurves;
 
                     for (int i = 1; i < polylines.Count; i++)
                         for (int e = 1; e < polylines[i].Count; e++)
-                            quads.Add(new Quad(polylines[i - 1][e - 1].end, polylines[i][e - 1].end, polylines[i][e].end, polylines[i - 1][e].end));
+                            mesh.quads.Add(new Quad(polylines[i - 1][e - 1], polylines[i][e - 1], polylines[i][e], polylines[i - 1][e]));
+
+                    return mesh;
                 }
 
-                public void MakeFromTriangleMesh(TriangleMesh mesh)
+                public static QuadMesh MakeFromTriangleMesh(TriangleMesh mesh)
                 {
-                    quads = new List<Quad>();
+                    QuadMesh quadMesh = new QuadMesh();
+                    quadMesh.quads = new List<Quad>();
 
                     for (int i = 0; i < mesh.Count; i += 2)
-                        quads.Add(new Quad(mesh[i][0], mesh[i][1], mesh[i][2], mesh[i + 1][1]));
+                        quadMesh.quads.Add(new Quad(mesh[i][0], mesh[i][1], mesh[i][2], mesh[i + 1][1]));
+
+                    return quadMesh;
                 }
             }
         }
@@ -624,7 +631,9 @@ namespace PlotEquation
         {
             public List<Point3d> points;
             public List<List<Point3d>> grid;
+            public List<Polyline> polylines;
             public List<Curve> curves;
+            public List<List<Polyline>> lineframe;
             public List<List<Curve>> wireframe;
             public List<Brep> triangles;
             public List<Brep> quads;
@@ -633,6 +642,8 @@ namespace PlotEquation
             /// <summary>
             /// Converts a Plot Point to a Rhino Point.
             /// </summary>
+            /// <param name="point"></param>
+            /// <returns></returns>
             public static Point3d PointToRhino(Objects.Point point)
             {
                 return new Point3d(point.X, point.Y, point.Y);
@@ -641,6 +652,8 @@ namespace PlotEquation
             /// <summary>
             /// Converts a Plot Grid object to a list of Rhino Point3ds.
             /// </summary>
+            /// <param name="grid"></param>
+            /// <returns></returns>
             public static List<List<Point3d>> GridToRhino(Objects.Grid grid)
             {
                 List<List<Point3d>> g = new List<List<Point3d>>();
@@ -651,10 +664,12 @@ namespace PlotEquation
 
                 return g;
             }
-
+            
             /// <summary>
             /// Converts a Plot Line to a Rhino Curve.
             /// </summary>
+            /// <param name="line"></param>
+            /// <returns></returns>
             public static Curve LineToRhino(Objects.Line line)
             {
                 return Curve.CreateInterpolatedCurve(new List<Point3d> { PointToRhino(line.start), PointToRhino(line.end) }, 3);
@@ -663,6 +678,8 @@ namespace PlotEquation
             /// <summary>
             /// Converts a Plot Polyline to a Rhino Polyline.
             /// </summary>
+            /// <param name="polyline"></param>
+            /// <returns></returns>
             public static Polyline PolylineToRhino(Objects.Polyline polyline)
             {
                 List<Point3d> points = new List<Point3d>();
@@ -674,8 +691,67 @@ namespace PlotEquation
             }
 
             /// <summary>
+            /// Converts a Plot Polyline to a Rhino Curve.
+            /// </summary>
+            /// <param name="polyline"></param>
+            /// <returns></returns>
+            public static Curve CurveToRhino(Objects.Polyline polyline)
+            {
+                return PolylineToRhino(polyline).ToNurbsCurve();
+            }
+
+            /// <summary>
+            /// Converts a Plot Wireframe into a 2D list of Rhino Polylines.
+            /// </summary>
+            /// <param name="wireframe"></param>
+            /// <param name="uCurves"></param>
+            /// <returns></returns>
+            public static List<List<Polyline>> LineframeToRhino(Objects.Wireframe wireframe)
+            {
+                List<List<Polyline>> w = new List<List<Polyline>>();
+                List<Polyline> u = new List<Polyline>();
+                List<Polyline> v = new List<Polyline>();
+
+                foreach (Objects.Polyline polyline in wireframe.uCurves)
+                    u.Add(PolylineToRhino(polyline));
+                foreach (Objects.Polyline polyline in wireframe.vCurves)
+                    v.Add(PolylineToRhino(polyline));
+
+                w.Add(u);
+                w.Add(v);
+
+                return w;
+            }
+
+            /// <summary>
+            /// Converts a Plot Wireframe into a 2D list of Rhino Curves.
+            /// </summary>
+            /// <param name="wireframe"></param>
+            /// <param name="uCurves"></param>
+            /// <returns></returns>
+            public static List<List<Curve>> WireframeToRhino(Objects.Wireframe wireframe)
+            {
+                List<List<Curve>> w = new List<List<Curve>>();
+                List<Curve> u = new List<Curve>();
+                List<Curve> v = new List<Curve>();
+
+                foreach (Objects.Polyline polyline in wireframe.uCurves)
+                    u.Add(CurveToRhino(polyline));
+                foreach (Objects.Polyline polyline in wireframe.vCurves)
+                    v.Add(CurveToRhino(polyline));
+
+                w.Add(u);
+                w.Add(v);
+
+                return w;
+            }
+
+            /// <summary>
             /// Converts a Plot Triangle to a Rhino Brep.
             /// </summary>
+            /// <param name="triangle"></param>
+            /// <param name="tolerance"></param>
+            /// <returns></returns>
             public static Brep TriangleToRhino(Objects.Triangle triangle, double tolerance = .00000001)
             {
                 return Brep.CreateFromCornerPoints(PointToRhino(triangle[0]), PointToRhino(triangle[1]), PointToRhino(triangle[2]), tolerance);
@@ -684,14 +760,19 @@ namespace PlotEquation
             /// <summary>
             /// Converts a Plot Quad to a Rhino Brep.
             /// </summary>
+            /// <param name="quad"></param>
+            /// <param name="tolerance"></param>
+            /// <returns></returns>
             public static Brep QuadToRhino(Objects.Quad quad, double tolerance = .00000001)
             {
                 return Brep.CreateFromCornerPoints(PointToRhino(quad[0]), PointToRhino(quad[1]), PointToRhino(quad[2]), PointToRhino(quad[3]), tolerance);
             }
 
             /// <summary>
-            /// Converts a Plot QuadMesh object to a list of Rhino Breps.
+            /// Converts a Plot TriangleMesh object to a list of Rhino Breps.
             /// </summary>
+            /// <param name="mesh"></param>
+            /// <returns></returns>
             public static List<Brep> TriangleMeshToRhino(Objects.TriangleMesh mesh)
             {
                 List<Brep> list = new List<Brep>();
@@ -705,6 +786,8 @@ namespace PlotEquation
             /// <summary>
             /// Converts a Plot QuadMesh object to a list of Rhino Breps.
             /// </summary>
+            /// <param name="mesh"></param>
+            /// <returns></returns>
             public static List<Brep> QuadMeshToRhino(Objects.QuadMesh mesh)
             {
                 List<Brep> list = new List<Brep>();
@@ -727,6 +810,11 @@ namespace PlotEquation
         protected Type plotType;
 
         /// <summary>
+        /// Contains the Rhino objects when converted from Plot objects.
+        /// </summary>
+        protected RhinoObjects rhinoObjects;
+
+        /// <summary>
         /// Any sliders are added here; used to see change over time.
         /// </summary>
         protected Dictionary<string, double> sliders = new Dictionary<string, double>();
@@ -747,6 +835,7 @@ namespace PlotEquation
         /// <summary>
         /// Checks Plot to see whether it is an equation or not.
         /// </summary>
+        /// <returns></returns>
         public bool IsEquation()
         {
             return plotType == Type.STANDARD_EQUATION || plotType == Type.PARAMETRIC_EQUATION;
@@ -755,6 +844,7 @@ namespace PlotEquation
         /// <summary>
         /// Checks Plot to see whether it is a standard equation or not.
         /// </summary>
+        /// <returns></returns>
         public bool IsStandardEquation()
         {
             return plotType == Type.STANDARD_EQUATION;
@@ -763,6 +853,7 @@ namespace PlotEquation
         /// <summary>
         /// Checks Plot to see whether it is a parametric equation or not.
         /// </summary>
+        /// <returns></returns>
         public bool IsParametricEquation()
         {
             return plotType == Type.PARAMETRIC_EQUATION;
@@ -771,6 +862,7 @@ namespace PlotEquation
         /// <summary>
         /// Checks Plot to see whether it is a mandelbrot fractal or not.
         /// </summary>
+        /// <returns></returns>
         public bool IsMandelbrot()
         {
             return plotType == Type.MANDELBROT;
@@ -779,6 +871,7 @@ namespace PlotEquation
         /// <summary>
         /// Checks Plot to see whether it is a strange attractor or not.
         /// </summary>
+        /// <returns></returns>
         public bool IsStrangeAttractor()
         {
             return plotType == Type.STRANGE_ATTRACTOR;
@@ -787,6 +880,8 @@ namespace PlotEquation
         /// <summary>
         /// Adds a slider to the list, which comprises of a variable and value.
         /// </summary>
+        /// <param name="variable"></param>
+        /// <param name="value"></param>
         public void AddSlider(string variable, double value)
         {
             sliders.Add(variable, value);
@@ -795,6 +890,7 @@ namespace PlotEquation
         /// <summary>
         /// Removes slider from list based on variable name.
         /// </summary>
+        /// <param name="variable"></param>
         public void RemoveSlider(string variable)
         {
             sliders.Remove(variable);
@@ -803,6 +899,8 @@ namespace PlotEquation
         /// <summary>
         /// Changes a slider value.
         /// </summary>
+        /// <param name="variable"></param>
+        /// <param name="value"></param>
         public void ChangeSlider(string variable, double value)
         {
             sliders[variable] = value;
@@ -811,6 +909,8 @@ namespace PlotEquation
         /// <summary>
         /// Updates a slider with an increment.
         /// </summary>
+        /// <param name="variable"></param>
+        /// <param name="increment"></param>
         public void UpdateSlider(string variable, double increment)
         {
             sliders[variable] += increment;
@@ -819,6 +919,7 @@ namespace PlotEquation
         /// <summary>
         /// Outputs Plot informtion.
         /// </summary>
+        /// <returns></returns>
         public abstract override string ToString();
 
         /// <summary>
@@ -855,11 +956,6 @@ namespace PlotEquation
         /// <summary>
         /// Wraps curves back to each other in a loop.
         public bool wrapCurves;
-
-        /// <summary>
-        /// List of variables with their corresponding bounds.
-        /// </summary>
-        protected Dictionary<string, Bounds> vars = new Dictionary<string, Bounds>();
 
         /// <summary>
         /// These lists contain the cartesian variables that can be used in equations.
@@ -905,9 +1001,31 @@ namespace PlotEquation
         };
 
         /// <summary>
+        /// List of variables that's used in equation.
+        /// </summary>
+        protected List<string> vars = new List<string>();
+
+        /// <summary>
+        /// List of the bounds to their corresponding variables.
+        /// </summary>
+        protected List<Bounds> bounds = new List<Bounds>();
+
+        /// <summary>
+        /// List of the bounds to coordinate values to restrict values that are
+        /// too large.
+        /// </summary>
+        protected Dictionary<string, Bounds> maxValues = new Dictionary<string, Bounds>
+        {
+            { "X" , new Bounds(Double.MaxValue, Double.MaxValue) },
+            { "Y" , new Bounds(Double.MaxValue, Double.MaxValue) },
+            { "Z" , new Bounds(Double.MaxValue, Double.MaxValue) }
+        };
+
+        /// <summary>
         /// Represents the number of points per curve.
         /// </summary>
         protected int pointsPerCurve;
+
         /// <summary>
         /// Represents the number of curves per surface.
         /// </summary>
@@ -931,6 +1049,15 @@ namespace PlotEquation
         /// Returns the dimension of the equation.
         /// </summary>
         public int Dimension => dimension;
+
+        /// <summary>
+        /// Returns the list with the vars used in equation.
+        /// </summary>
+        public List<string> Vars => vars;
+        /// <summary>
+        /// Returns the list with the bounds to the vars used in equation.
+        /// </summary>
+        public List<Bounds> Bounds => bounds;
 
         /// <summary>
         /// Returns the number of points per curve.
@@ -957,8 +1084,182 @@ namespace PlotEquation
         }
 
         /// <summary>
+        /// Checks whether equation is 2 dimensional.
+        /// </summary>
+        /// <returns></returns>
+        public bool Is2D()
+        {
+            return dimension == 2;
+        }
+
+        /// <summary>
+        /// Checks whether equation is 3 dimensional.
+        /// </summary>
+        /// <returns></returns>
+        public bool Is3D()
+        {
+            return dimension == 3;
+        }
+
+        /// <summary>
+        /// Checks whether equation is 4 dimensional.
+        /// </summary>
+        /// <returns></returns>
+        public bool Is4D()
+        {
+            return dimension == 4;
+        }
+
+        /// <summary>
+        /// Checks whether equation is implicit.
+        /// </summary>
+        /// <returns></returns>
+        public bool IsImplicit()
+        {
+            return variablesUsed == VariablesUsed.IMPLICIT_CURVE || variablesUsed == VariablesUsed.IMPLICIT_SURFACE;
+        }
+
+        /// <summary>
+        /// Checks whether equation is parametric.
+        /// </summary>
+        /// <returns></returns>
+        public bool IsParametric()
+        {
+            return variablesUsed == VariablesUsed.PARAMETRIC_CURVE || variablesUsed == VariablesUsed.PARAMETRIC_SURFACE;
+        }
+
+        /// <summary>
+        /// Evaluates the result of an equation after plugging in the variable
+        /// values.
+        /// </summary>
+        /// <param name="eq"></param>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <param name="z"></param>
+        /// <returns></returns>
+        protected Objects.Point ExpressionResult(Expression eq, double x, double y, double z)
+        {
+            switch (equationType)
+            {
+                case Type.CARTESIAN:
+                    switch (variablesUsed)
+                    {
+                        case VariablesUsed.ONE:
+                        case VariablesUsed.ONE_TWO:
+                            return Calculate.CartesianPoint(x, y, z);
+                        case VariablesUsed.TWO:
+                            return Calculate.CartesianPoint(y, x, z);
+                        case VariablesUsed.ONE_THREE:
+                            return Calculate.CartesianPoint(x, z, y);
+                        case VariablesUsed.TWO_THREE:
+                            return Calculate.CartesianPoint(y, z, x);
+                    }
+
+                    break;
+                case Type.SPHERICAL:
+                    switch (variablesUsed)
+                    {
+                        case VariablesUsed.ONE:
+                        case VariablesUsed.ONE_TWO:
+                            return Calculate.SphericalPoint(x, y, z);
+                        case VariablesUsed.TWO:
+                            return Calculate.SphericalPoint(y, x, z);
+                        case VariablesUsed.ONE_THREE:
+                            return Calculate.SphericalPoint(x, z, y);
+                        case VariablesUsed.TWO_THREE:
+                            return Calculate.SphericalPoint(y, z, x);
+                    }
+
+                    break;
+                case Type.CYLINDRICAL:
+                    switch (variablesUsed)
+                    {
+                        case VariablesUsed.ONE:
+                        case VariablesUsed.ONE_TWO:
+                            return Calculate.CylindricalPoint(x, y, z);
+                        case VariablesUsed.TWO:
+                            return Calculate.CylindricalPoint(y, x, z);
+                        case VariablesUsed.ONE_THREE:
+                            return Calculate.CylindricalPoint(x, z, y);
+                        case VariablesUsed.TWO_THREE:
+                            return Calculate.CylindricalPoint(y, z, x);
+                    }
+
+                    break;
+            }
+
+            return new Objects.Point(0, 0, 0);
+        }
+
+        /// <summary>
+        /// Creates all the Rhino objects from Plot Wireframe.
+        /// </summary>
+        /// <param name="wireframe"></param>
+        protected void CreateRhinoObjects(Objects.Wireframe wireframe)
+        {
+            var o = new RhinoObjects();
+
+            if (dimension == 2)
+            {
+                // Point list creation
+                o.points = new List<Point3d>();
+
+                foreach (Objects.Polyline polyline in wireframe.uCurves)
+                    foreach (Objects.Point point in polyline.Verticies)
+                        o.points.Add(RhinoObjects.PointToRhino(point));
+
+                // Polyline list creation
+                o.polylines = new List<Polyline>();
+
+                foreach (Objects.Polyline polyline in wireframe.uCurves)
+                    o.polylines.Add(RhinoObjects.PolylineToRhino(polyline));
+
+                // Curve list creation
+                o.curves = new List<Curve>();
+
+                foreach (Objects.Polyline polyline in wireframe.uCurves)
+                    o.curves.Add(RhinoObjects.CurveToRhino(polyline));
+            }
+            else if (dimension == 3)
+            {
+                // Grid creation
+                o.grid = new List<List<Point3d>>();
+
+                foreach (Objects.Polyline polyline in wireframe.uCurves)
+                {
+                    List<Point3d> points = new List<Point3d>();
+
+                    foreach (Objects.Point point in polyline.Verticies)
+                        points.Add(RhinoObjects.PointToRhino(point));
+
+                    o.grid.Add(points);
+                }
+
+                // Lineframe creation
+                o.lineframe = RhinoObjects.LineframeToRhino(wireframe);
+
+                // Wireframe creation
+                o.wireframe = RhinoObjects.WireframeToRhino(wireframe);
+
+                // Triangle list creation
+                o.triangles = RhinoObjects.TriangleMeshToRhino(Objects.TriangleMesh.MakeFromWireframe(wireframe));
+
+                // Quad list creation
+                o.quads = RhinoObjects.QuadMeshToRhino(Objects.QuadMesh.MakeFromWireframe(wireframe));
+
+                // Surface creation
+                o.surfaces = new List<Surface>
+                {
+                    Create.SurfaceFromPoints(o.grid)
+                };
+            }
+        }
+
+        /// <summary>
         /// Tests to see if an Expression has no errors.
         /// </summary>
+        /// <param name="e"></param>
+        /// <returns></returns>
         public static bool ValidExpression(Expression e)
         {
             if (e.HasErrors())
@@ -971,53 +1272,167 @@ namespace PlotEquation
         }
 
         /// <summary>
-        /// Checks whether equation is 2 dimensional.
+        /// Sets all the possible mathematical functions equations can use.
         /// </summary>
-        public bool Is2D()
+        /// <param name="expression"></param>
+        public static void SetParameters(ref Expression expression)
         {
-            return dimension == 2;
-        }
+            expression.Parameters["pi"] = Math.PI;
+            expression.Parameters["e"] = Math.E;
 
-        /// <summary>
-        /// Checks whether equation is 3 dimensional.
-        /// </summary>
-        public bool Is3D()
-        {
-            return dimension == 3;
-        }
+            expression.EvaluateFunction += delegate (string name, FunctionArgs args)
+            {
+                double d = Double.NaN,
+                    e = Double.NaN,
+                    f = Double.NaN;
 
-        /// <summary>
-        /// Checks whether equation is 4 dimensional.
-        /// </summary>
-        public bool Is4D()
-        {
-            return dimension == 4;
-        }
+                if (args.Parameters.Length > 0)
+                    d = System.Convert.ToDouble(args.Parameters[0].Evaluate());
+                if (args.Parameters.Length > 1)
+                    e = System.Convert.ToDouble(args.Parameters[1].Evaluate());
+                if (args.Parameters.Length > 2)
+                    f = System.Convert.ToDouble(args.Parameters[2].Evaluate());
 
-        /// <summary>
-        /// Checks whether equation is implicit.
-        /// </summary>
-        public bool IsImplicit()
-        {
-            return variablesUsed == VariablesUsed.IMPLICIT_CURVE || variablesUsed == VariablesUsed.IMPLICIT_SURFACE;
-        }
-
-        /// <summary>
-        /// Checks whether equation is parametric.
-        /// </summary>
-        public bool IsParametric()
-        {
-            return variablesUsed == VariablesUsed.PARAMETRIC_CURVE || variablesUsed == VariablesUsed.PARAMETRIC_SURFACE;
+                switch (name)
+                {
+                    case "abs":
+                        args.Result = Math.Abs(d);
+                        break;
+                    case "pow":
+                        args.Result = Math.Pow(d, e);
+                        break;
+                    case "sqrt":
+                        args.Result = Math.Sqrt(d);
+                        break;
+                    case "round":
+                        args.Result = Math.Round(d, System.Convert.ToInt32(e));
+                        break;
+                    case "sign":
+                        if (d > 0)
+                            args.Result = 1;
+                        else if (d < 0)
+                            args.Result = -1;
+                        else
+                            args.Result = 0;
+                        break;
+                    case "min":
+                        args.Result = Math.Min(d, e);
+                        break;
+                    case "max":
+                        args.Result = Math.Max(d, e);
+                        break;
+                    case "ceiling":
+                        args.Result = Math.Ceiling(d);
+                        break;
+                    case "truncate":
+                        args.Result = Math.Truncate(d);
+                        break;
+                    case "exp":
+                        args.Result = Math.Exp(d);
+                        break;
+                    case "floor":
+                        args.Result = Math.Floor(d);
+                        break;
+                    case "remainder":
+                    case "ieeeremainder":
+                        args.Result = Math.IEEERemainder(d, e);
+                        break;
+                    case "ln":
+                        args.Result = Math.Log(d);
+                        break;
+                    case "log":
+                        if (Double.IsNaN(e))
+                            args.Result = Math.Log10(d);
+                        else
+                            args.Result = Math.Log10(e) / Math.Log10(d);
+                        break;
+                    case "log10":
+                        args.Result = Math.Log10(d);
+                        break;
+                    case "sin":
+                        args.Result = Math.Sin(d % (2 * Math.PI));
+                        break;
+                    case "cos":
+                        args.Result = Math.Cos(d % (2 * Math.PI));
+                        break;
+                    case "tan":
+                        args.Result = Math.Tan(d % (2 * Math.PI));
+                        break;
+                    case "csc":
+                        args.Result = 1 / Math.Sin(d % (2 * Math.PI));
+                        break;
+                    case "sec":
+                        args.Result = 1 / Math.Cos(d % (2 * Math.PI));
+                        break;
+                    case "cot":
+                        args.Result = 1 / Math.Tan(d % (2 * Math.PI));
+                        break;
+                    case "asin":
+                        args.Result = Math.Asin(d % (2 * Math.PI));
+                        break;
+                    case "acos":
+                        args.Result = Math.Acos(d % (2 * Math.PI));
+                        break;
+                    case "atan":
+                        args.Result = Math.Atan(d % (2 * Math.PI));
+                        break;
+                    case "sinh":
+                        args.Result = Math.Sinh(d);
+                        break;
+                    case "cosh":
+                        args.Result = Math.Cosh(d);
+                        break;
+                    case "tanh":
+                        args.Result = Math.Tanh(d);
+                        break;
+                    case "csch":
+                        args.Result = 1 / Math.Sinh(d);
+                        break;
+                    case "sech":
+                        args.Result = 1 / Math.Cosh(d);
+                        break;
+                    case "coth":
+                        args.Result = 1 / Math.Tanh(d);
+                        break;
+                    case "sinc":
+                        if (Equals(d, 0))
+                            args.Result = 1;
+                        else
+                            args.Result = Math.Sin(d % (2 * Math.PI)) / d;
+                        break;
+                    case "random":
+                        var random = new Random((int)DateTime.Now.Ticks & 0x0000FFFF);
+                        if (Double.IsNaN(d))
+                            d = 1;
+                        args.Result = random.NextDouble() * d;
+                        break;
+                    case "randint":
+                        random = new Random((int)DateTime.Now.Ticks & 0x0000FFFF);
+                        if (d < e)
+                            args.Result = (int)d + (int)((e - d + 1) * random.NextDouble());
+                        else
+                            args.Result = (int)e + (int)((d - e + 1) * random.NextDouble());
+                        break;
+                    case "randdec":
+                        random = new Random((int)DateTime.Now.Ticks & 0x0000FFFF);
+                        if (d < e)
+                            args.Result = d + (e - d + 1) * random.NextDouble();
+                        else
+                            args.Result = e + (d - e + 1) * random.NextDouble();
+                        break;
+                }
+            };
         }
 
         /// <summary>
         /// Determines the equation type, variables, and dimension.
         /// </summary>
-        protected abstract bool DetermineEquationType(List<Bounds> bounds);
+        /// <returns></returns>
+        protected abstract bool DetermineEquationType();
     }
 
     /// <summary>
-    /// Standard Equation class.
+    /// Standard equation class (one expression line).
     /// </summary>
     public sealed class StandardEquation : Equation
     {
@@ -1027,13 +1442,18 @@ namespace PlotEquation
         /// variable. The equation dimension is then found by the number of
         /// elements in the list.
         /// </summary>
-        public StandardEquation(string expression, List<Bounds> bounds)
+        /// <param name="expression"></param>
+        /// <param name="bounds"></param>
+        public StandardEquation(string expression, List<Bounds> bounds, int pointsPerCurve = 100, int curvesPerSurface = 100)
         {
             plotType = Plot.Type.STANDARD_EQUATION;
             this.expression = expression;
+            this.bounds = bounds;
+            this.curvesPerSurface = curvesPerSurface;
+            this.pointsPerCurve = pointsPerCurve;
             dimension = bounds.Count + 1;
 
-            if (!DetermineEquationType(bounds))
+            if (!DetermineEquationType())
             {
                 success = false;
                 RhinoApp.WriteLine("Failed to create equation object.");
@@ -1055,8 +1475,21 @@ namespace PlotEquation
         /// <summary>
         /// Determines the equation type and variables.
         /// </summary>
-        protected override bool DetermineEquationType(List<Bounds> bounds)
+        /// <returns></returns>
+        protected override bool DetermineEquationType()
         {
+            // Tests to make sure iteration values are valid
+            if (pointsPerCurve > 1 && pointsPerCurve < 999)
+            {
+                RhinoApp.WriteLine("Points per curve must be bigger than 1 and less than 999.");
+                return false;
+            }
+            if (curvesPerSurface > 1 && curvesPerSurface < 999)
+            {
+                RhinoApp.WriteLine("Curves per surface must be bigger than 1 and less than 999.");
+                return false;
+            }
+
             // List of variables that pertains to equation type
             List<string> vars = new List<string>();
 
@@ -1148,8 +1581,32 @@ namespace PlotEquation
             
             expression = simplifiedEq;
 
-            for (int i = 0; i < dimension; i++)
-                this.vars.Add(vars[i], bounds[i]);
+            switch (variablesUsed)
+            {
+                case VariablesUsed.ONE:
+                    this.vars.Add(vars[0]);
+
+                    break;
+                case VariablesUsed.TWO:
+                    this.vars.Add(vars[1]);
+
+                    break;
+                case VariablesUsed.ONE_TWO:
+                    this.vars.Add(vars[0]);
+                    this.vars.Add(vars[1]);
+
+                    break;
+                case VariablesUsed.ONE_THREE:
+                    this.vars.Add(vars[0]);
+                    this.vars.Add(vars[2]);
+
+                    break;
+                case VariablesUsed.TWO_THREE:
+                    this.vars.Add(vars[1]);
+                    this.vars.Add(vars[2]);
+
+                    break;
+            }
 
             return ValidExpression(new Expression(expression));
         }
@@ -1157,6 +1614,8 @@ namespace PlotEquation
         /// <summary>
         /// Checks to see if the expression is valid.
         /// </summary>
+        /// <param name="vars"></param>
+        /// <returns></returns>
         private bool ValidVariables(List<string> vars)
         {
             return ContainsRightVariables(vars) || !ContainsWrongVariables(vars);
@@ -1165,6 +1624,8 @@ namespace PlotEquation
         /// <summary>
         /// Looks to see if valid vairables exist in expression.
         /// </summary>
+        /// <param name="vars"></param>
+        /// <returns></returns>
         private bool ContainsRightVariables(List<string> vars)
         {
             foreach (string v in vars)
@@ -1177,6 +1638,8 @@ namespace PlotEquation
         /// <summary>
         /// Checks for letters that shouldn't be there.
         /// </summary>
+        /// <param name="vars"></param>
+        /// <returns></returns>
         private bool ContainsWrongVariables(List<string> vars)
         {
             string eq = expression;
@@ -1198,11 +1661,12 @@ namespace PlotEquation
 
             return false;
         }
-        
+
         /// <summary>
         /// Removes the substrings that are mathematical functions from
         /// equation; used for variable checking.
         /// </summary>
+        /// <param name="eq"></param>
         private static void RemoveMathFunctions(ref string eq)
         {
             eq = eq.Replace("ieeeremainder(", "");
@@ -1247,19 +1711,82 @@ namespace PlotEquation
         /// <summary>
         /// Outputs StandardEquation informtion.
         /// </summary>
+        /// <returns></returns>
         public override string ToString()
         {
             return dimension + "D " + equationType + " Equation:\n\t\"" + expression + "\"\n";
         }
-        
+
         /// <summary>
-        /// Creates objects.
+        /// Creates equation objects.
         /// </summary>
         public override void Generate()
         {
             if (success)
             {
+                var eq = new Expression(expression);
+                SetParameters(ref eq);
 
+                double pointIteration = (bounds[0].max - bounds[0].min) / pointsPerCurve;
+                double curveIteration = 1;
+                double result = 0;
+                
+                if (dimension == 2)
+                    bounds.Add(equationType == Type.SPHERICAL ? new Bounds(Math.PI/2,2) : new Bounds(0,0));
+                else if (dimension == 3)
+                    curveIteration = (bounds[1].max - bounds[1].min) / curvesPerSurface;
+
+                int pointDecimalCount = Math.Max(Calculate.DecimalCount(pointIteration), Calculate.DecimalCount(bounds[0].min));
+                int curveDecimalCount = Math.Max(Calculate.DecimalCount(curveIteration), Calculate.DecimalCount(bounds[1].min)); ;
+
+                var wireframe = new Objects.Wireframe();
+
+                for (double varTwo = bounds[1].min; varTwo <= bounds[1].max; varTwo += curveIteration)
+                {
+                    varTwo = Math.Round(varTwo, curveDecimalCount);
+
+                    if (dimension == 3)
+                        eq.Parameters[vars[1]] = varTwo;
+
+                    var curve = new Objects.Polyline();
+
+                    for (double varOne = bounds[0].min; varOne <= bounds[0].max; varOne += pointIteration)
+                    {
+                        varOne = Math.Round(varOne, pointDecimalCount);
+                        eq.Parameters[vars[0]] = varOne;
+
+                        result = Convert.ToDouble(eq.Evaluate());
+
+                        if (Double.IsPositiveInfinity(result))
+                            result = Double.MaxValue;
+                        else if (Double.IsNegativeInfinity(result))
+                            result = Double.MinValue;
+                        else if (Double.IsNaN(result))
+                            result = 0;
+
+                        Objects.Point functionResult = ExpressionResult(eq, varOne, (dimension == 3) ? varTwo : result, (dimension == 3) ? result : varTwo);
+
+                        // replace these lines
+                        functionResult.X = Math.Min(functionResult.X, maxValues["X"].max);
+                        functionResult.X = Math.Max(functionResult.X, maxValues["X"].min);
+                        functionResult.Y = Math.Min(functionResult.Y, maxValues["Y"].max);
+                        functionResult.Y = Math.Max(functionResult.Y, maxValues["Y"].min);
+                        functionResult.Z = Math.Min(functionResult.Z, maxValues["Z"].max);
+                        functionResult.Z = Math.Max(functionResult.Z, maxValues["Z"].min);
+
+                        curve.Add(functionResult);
+                    }
+
+                    if (wrapPoints)
+                        curve.Add(curve[0]);
+
+                    wireframe.uCurves.Add(curve);
+                }
+
+                if (wrapCurves && dimension == 3)
+                    wireframe.uCurves.Add(wireframe.uCurves[0]);
+
+                CreateRhinoObjects(wireframe);
             }
             else
                 RhinoApp.WriteLine("Unable to generate equation.");

@@ -6,6 +6,9 @@ using Rhino.Geometry;
 
 namespace PlotEquation
 {
+    /// <summary>
+    ///  Type with two double components.
+    /// </summary>
     public struct Bounds
     {
         public double min;
@@ -63,6 +66,9 @@ namespace PlotEquation
         }
     }
 
+    /// <summary>
+    ///  Type with three double components that represent a 3D vector.
+    /// </summary>
     public struct Vector3D
     {
         public double X;
@@ -250,6 +256,10 @@ namespace PlotEquation
         }
     }
 
+    /// <summary>
+    ///  Type with two double components that represent a point on the
+    ///  imaginary plane.
+    /// </summary>
     public struct Complex
     {
         public double R;
@@ -837,6 +847,9 @@ namespace PlotEquation
         }
     }
 
+    /// <summary>
+    ///  Type with four double components that represent a point in 4D space.
+    /// </summary>
     public struct Quaternion
     {
         public double W;
@@ -1385,6 +1398,10 @@ namespace PlotEquation
         }
     }
 
+    /// <summary>
+    ///  Type that represents a mathematical turtle, a method of movement in
+    ///  space with rotation and movement in 3D movement.
+    /// </summary>,
     public class Turtle
     {
         public Vector3D forward = Vector3D.Right;
@@ -1524,6 +1541,81 @@ namespace PlotEquation
             TurnForward(localRotation);
             rightAxis = PointAtRotationAxis(localRotation, rightAxis);
             upAxis = PointAtRotationAxis(localRotation, upAxis);
+        }
+    }
+
+    /// <summary>
+    ///  A collection of methods that involve different kinds of calculations.
+    /// </summary>,
+    public static class Calculate
+    {
+        /// <summary>
+        /// Gets decimal count of a value, used for rounding doubles in graph generation.
+        /// </summary>
+        internal static int DecimalCount(double val)
+        {
+            int i = 0;
+
+            while (!Math.Round(val, i).Equals(val) && i < 14)
+                i++;
+
+            return i;
+        }
+
+        /// <summary>
+        /// Point calculation for cartesian equations.
+        /// </summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <param name="z"></param>
+        /// <returns></returns>
+        public static Plot.Objects.Point CartesianPoint(double x, double y, double z = 0)
+        {
+            return new Plot.Objects.Point(x, y, z);
+        }
+        
+        /// <summary>
+        /// Point calculation for spherical equations.
+        /// </summary>
+        /// <param name="theta"></param>
+        /// <param name="r"></param>
+        /// <param name="phi"></param>
+        /// <returns></returns>
+        public static Plot.Objects.Point SphericalPoint(double theta, double r, double phi = Math.PI / 2)
+        {
+            return new Plot.Objects.Point(r * Math.Cos(theta) * Math.Sin(phi), r * Math.Sin(theta) * Math.Sin(phi), r * Math.Cos(phi));
+        }
+
+        /// <summary>
+        /// Point calculation for cylindrical graphs.
+        /// </summary>
+        /// <param name="theta"></param>
+        /// <param name="r"></param>
+        /// <param name="z"></param>
+        /// <returns></returns>
+        public static Plot.Objects.Point CylindricalPoint(double theta, double r, double z)
+        {
+            return new Plot.Objects.Point(r * Math.Cos(theta), r * Math.Sin(theta), z);
+        }
+    }
+
+    public static class Create
+    {
+        /// <summary>
+        /// Creates a Rhino Surface using a 2D list of points.
+        /// </summary>
+        /// <param name="points"></param>
+        /// <param name="uDegree"></param>
+        /// <param name="vDegree"></param>
+        /// <returns></returns>
+        public static Surface SurfaceFromPoints(List<List<Point3d>> points, int uDegree = 3, int vDegree = 3)
+        {
+            List<Point3d> p = new List<Point3d>();
+
+            foreach (List<Point3d> list in points)
+                p.AddRange(list);
+
+            return NurbsSurface.CreateFromPoints(p, points.Count, points[0].Count, uDegree, vDegree);
         }
     }
 }
