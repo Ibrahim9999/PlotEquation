@@ -26,20 +26,21 @@ namespace PlotEquation
         ///<returns>The command name as it appears on the Rhino command line.</returns>
         public override string EnglishName
         {
-            get { return "CartesianCurve"; }
+            get { return "EquationCurve"; }
         }
 
         protected override Result RunCommand(RhinoDoc doc, RunMode mode)
         {
             // TODO: start here modifying the behaviour of your command.
             // ---
-            RhinoApp.WriteLine("{0} will plot a graph.", EnglishName);
+            RhinoApp.WriteLine("{0} will plot a graph.\n", EnglishName);
 
             //new Eto.Forms.Application().Run(new MyForm());
 
-            StandardEquation eq = new StandardEquation("y=sin(x)", new List<Bounds> { new Bounds(-10, 10),  });
+            string expression = "z=sin(x)+sin(y)";
+            StandardEquation eq = new StandardEquation(expression, new List<Bounds> { new Bounds(-10, 10), new Bounds(-10, 10) });
             eq.Generate();
-            eq.GetRhinoObjects().AddAll(doc, "Sine Wave");
+            eq.GetRhinoObjects().AddAll(doc, expression);
 
             // ---
 

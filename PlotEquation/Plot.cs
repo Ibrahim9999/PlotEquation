@@ -732,6 +732,8 @@ namespace PlotEquation
 
                     foreach (Point3d point in points)
                         doc.Objects.AddPoint(point, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
+
+                    doc.Views.Redraw();
                 }
                 if (grid.Count != 0)
                 {
@@ -748,6 +750,7 @@ namespace PlotEquation
                         doc.Groups.Add(guids);
                     }
 
+                    doc.Views.Redraw();
                 }
                 if (polylines.Count != 0)
                 {
@@ -756,6 +759,8 @@ namespace PlotEquation
 
                     foreach (Polyline polyline in polylines)
                         doc.Objects.AddPolyline(polyline, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
+
+                    doc.Views.Redraw();
                 }
                 if (curves.Count != 0)
                 {
@@ -764,6 +769,8 @@ namespace PlotEquation
 
                     foreach (Curve curve in curves)
                         doc.Objects.AddCurve(curve, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
+
+                    doc.Views.Redraw();
                 }
                 if (lineframe.Count != 0)
                 {
@@ -779,6 +786,8 @@ namespace PlotEquation
 
                         doc.Groups.Add(guids);
                     }
+
+                    doc.Views.Redraw();
                 }
                 if (wireframe.Count != 0)
                 {
@@ -802,6 +811,8 @@ namespace PlotEquation
 
                     foreach (Brep brep in triangles)
                         doc.Objects.AddBrep(brep, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
+
+                    doc.Views.Redraw();
                 }
                 if (quads.Count != 0)
                 {
@@ -810,6 +821,8 @@ namespace PlotEquation
 
                     foreach (Brep brep in quads)
                         doc.Objects.AddBrep(brep, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
+
+                    doc.Views.Redraw();
                 }
                 if (surfaces.Count != 0)
                 {
@@ -818,6 +831,8 @@ namespace PlotEquation
 
                     foreach (Surface surface in surfaces)
                         doc.Objects.AddSurface(surface, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
+
+                    doc.Views.Redraw();
                 }
             }
 
@@ -899,6 +914,8 @@ namespace PlotEquation
                 List<List<Polyline>> w = new List<List<Polyline>>();
                 List<Polyline> u = new List<Polyline>();
                 List<Polyline> v = new List<Polyline>();
+
+                
 
                 foreach (Objects.Polyline polyline in wireframe.uCurves)
                     u.Add(PolylineToRhino(polyline));
@@ -1441,7 +1458,7 @@ namespace PlotEquation
                 // Surface creation
                 rhinoObjects.surfaces = new List<Surface>
                 {
-                    Create.SurfaceFromPoints(rhinoObjects.grid)
+                    Create.SurfaceFromPoints(rhinoObjects.grid, 3, 3, wrapPoints, wrapCurves)
                 };
             }
         }
@@ -1635,7 +1652,7 @@ namespace PlotEquation
         /// </summary>
         /// <param name="expression"></param>
         /// <param name="bounds"></param>
-        public StandardEquation(string expression, List<Bounds> bounds, int pointsPerCurve = 100, int curvesPerSurface = 100)
+        public StandardEquation(string expression, List<Bounds> bounds, int pointsPerCurve = 10, int curvesPerSurface = 10)
         {
             plotType = Plot.Type.STANDARD_EQUATION;
             this.expression = expression;
@@ -1733,12 +1750,12 @@ namespace PlotEquation
                 case 2:
                     vars.RemoveAt(vars.Count - 1);
 
-                    if (((exists[0] || ContainsRightVariables(new List<string>() { vars[1] })) && (expression.StartsWith(vars[1] + "=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[0] + ")=", StringComparison.Ordinal) || !equalsExists)) && ContainsRightVariables(new List<string>() { vars[1] }))
+                    if (((exists[0] || ContainsRightVariables(new List<string>() { vars[0] })) && (expression.StartsWith(vars[1] + "=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[0] + ")=", StringComparison.Ordinal) || expression.StartsWith(vars[1] + "(" + vars[0] + ")=", StringComparison.Ordinal) || !equalsExists)) && ContainsRightVariables(new List<string>() { vars[0] }))
                     {
                         variablesUsed = VariablesUsed.ONE;
                         simplifiedEq += vars[0];
                     }
-                    else if (((exists[1] || ContainsRightVariables(new List<string>() { vars[0] })) && (expression.StartsWith(vars[0] + "=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[1] + ")=", StringComparison.Ordinal) || !equalsExists)) && ContainsRightVariables(new List<string>() { vars[0] }))
+                    else if (((exists[1] || ContainsRightVariables(new List<string>() { vars[1] })) && (expression.StartsWith(vars[0] + "=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[1] + ")=", StringComparison.Ordinal) || expression.StartsWith(vars[1] + "(" + vars[1] + ")=", StringComparison.Ordinal) || !equalsExists)) && ContainsRightVariables(new List<string>() { vars[1] }))
                     {
                         variablesUsed = VariablesUsed.TWO;
                         simplifiedEq += vars[1];
@@ -1773,6 +1790,12 @@ namespace PlotEquation
                     RhinoApp.WriteLine("Dimension outside scope of program. Accepted values are 2, 3, and 4.");
                     return false;
             }
+
+            if (variablesUsed == VariablesUsed.NONE)
+            {
+                RhinoApp.WriteLine("Invalid variables. Make sure variables correspond to either cartesian, spherical, or cylindrical coordinates.");
+                return false;
+            }
             
             expression = simplifiedEq;
 
@@ -1803,8 +1826,14 @@ namespace PlotEquation
                     break;
             }
 
-            RhinoApp.WriteLine("Successfully reached the end of determining.");
+            RhinoApp.Write("vars: ");
+            for (int i = 0; i < this.vars.Count; i++)
+                RhinoApp.Write(this.vars[i] + ", ");
 
+            RhinoApp.WriteLine("\nequationType " + equationType);
+            RhinoApp.WriteLine("variablesUsed " + variablesUsed);
+            RhinoApp.WriteLine("expression " + expression);
+            
             return ValidExpression(new Expression(expression));
         }
 
@@ -1937,7 +1966,7 @@ namespace PlotEquation
                 int curveDecimalCount = Math.Max(Calculate.DecimalCount(curveIteration), Calculate.DecimalCount(bounds[1].min)); ;
 
                 var wireframe = new Objects.Wireframe();
-                RhinoApp.WriteLine("HERE.");
+                
                 for (double varTwo = bounds[1].min; varTwo <= bounds[1].max; varTwo += curveIteration)
                 {
                     varTwo = Math.Round(varTwo, curveDecimalCount);
@@ -1963,7 +1992,7 @@ namespace PlotEquation
 
                         Objects.Point functionResult = ExpressionResult(eq, varOne, (dimension == 3) ? varTwo : result, (dimension == 3) ? result : varTwo);
                         
-                        // replace these lines
+                        //@ replace these lines
                         functionResult.X = Math.Min(functionResult.X, maxValues["X"].max);
                         functionResult.X = Math.Max(functionResult.X, maxValues["X"].min);
                         functionResult.Y = Math.Min(functionResult.Y, maxValues["Y"].max);
@@ -1982,7 +2011,10 @@ namespace PlotEquation
 
                 if (wrapCurves && dimension == 3)
                     wireframe.uCurves.Add(wireframe.uCurves[0]);
-                
+
+                if (dimension == 3)
+                    wireframe.MakeVFromU();
+
                 CreateRhinoObjects(wireframe);
             }
             else

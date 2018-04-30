@@ -1611,14 +1611,14 @@ namespace PlotEquation
         /// <param name="uDegree"></param>
         /// <param name="vDegree"></param>
         /// <returns></returns>
-        public static Surface SurfaceFromPoints(List<List<Point3d>> points, int uDegree = 3, int vDegree = 3)
+        public static Surface SurfaceFromPoints(List<List<Point3d>> points, int uDegree, int vDegree, bool uClosed, bool vClosed)
         {
             List<Point3d> p = new List<Point3d>();
 
             foreach (List<Point3d> list in points)
                 p.AddRange(list);
 
-            return NurbsSurface.CreateFromPoints(p, points.Count, points[0].Count, uDegree, vDegree);
+            return NurbsSurface.CreateThroughPoints(p, points.Count, points[0].Count, uDegree, vDegree, uClosed, vClosed);
         }
     }
 }
