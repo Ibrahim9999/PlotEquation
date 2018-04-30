@@ -5,7 +5,7 @@ using Rhino.Geometry;
 using NCalc;
 using System.Linq;
 using System.Collections;
-
+//@ Add names to points in rhino
 namespace PlotEquation
 {
     /// <summary>
@@ -21,12 +21,18 @@ namespace PlotEquation
             /// <summary>
             /// Point object with three components.
             /// </summary>
-            public struct Point
+            public class Point
             {
                 public double X;
                 public double Y;
                 public double Z;
 
+                public Point()
+                {
+                    X = 0;
+                    Y = 0;
+                    Z = 0;
+                }
                 public Point(double X, double Y)
                 {
                     this.X = X;
@@ -39,6 +45,8 @@ namespace PlotEquation
                     this.Y = Y;
                     this.Z = Z;
                 }
+
+                public static Point Origin => new Point(0, 0, 0);
 
                 public override string ToString()
                 {
@@ -95,14 +103,18 @@ namespace PlotEquation
                     return Math.Sqrt(X * X + Y * Y + Z * Z);
                 }
             }
-        
+            
             /// <summary>
             /// 2D list of points in 3D space.
             /// </summary>
-            public struct Grid
+            public class Grid
             {
                 private List<List<Point>> points;
 
+                public Grid()
+                {
+                    points = new List<List<Point>>();
+                }
                 public Grid(List<List<Point>> points)
                 {
                     this.points = points;
@@ -167,11 +179,16 @@ namespace PlotEquation
             /// <summary>
             /// An object that represents the line between two points.
             /// </summary>
-            public struct Line
+            public class Line
             {
                 public Point start;
                 public Point end;
 
+                public Line()
+                {
+                    start = Point.Origin;
+                    end = Point.Origin;
+                }
                 public Line(Point a, Point b)
                 {
                     start = a;
@@ -230,10 +247,14 @@ namespace PlotEquation
             /// <summary>
             /// A list of points that represent verticies in a lines.
             /// </summary>
-            public struct Polyline
+            public class Polyline
             {
                 private List<Point> verticies;
 
+                public Polyline()
+                {
+                    verticies = new List<Point>();
+                }
                 public Polyline(List<Point> polyline)
                 {
                     verticies = polyline;
@@ -349,11 +370,16 @@ namespace PlotEquation
             /// <summary>
             /// A 2D grid of lines in 3D space.
             /// </summary>
-            public struct Wireframe
+            public class Wireframe
             {
                 public List<Polyline> uCurves;
                 public List<Polyline> vCurves;
 
+                public Wireframe()
+                {
+                    uCurves = new List<Polyline>();
+                    vCurves = new List<Polyline>();
+                }
                 public Wireframe(List<Polyline> uCurves)
                 {
                     this.uCurves = uCurves;
@@ -450,10 +476,18 @@ namespace PlotEquation
             /// <summary>
             /// A collection of 3D points that represent verticies of a triangle.
             /// </summary>
-            public struct Triangle
+            public class Triangle
             {
                 private Point[] verticies;
 
+                public Triangle()
+                {
+                    verticies = new Point[3];
+
+                    verticies[0] = Point.Origin;
+                    verticies[1] = Point.Origin;
+                    verticies[2] = Point.Origin;
+                }
                 public Triangle(Point a, Point b, Point c)
                 {
                     verticies = new Point[3];
@@ -489,10 +523,20 @@ namespace PlotEquation
             /// <summary>
             /// A collection of 3D points that represent verticies of a quad.
             /// </summary>
-            public struct Quad
+            public class Quad
             {
                 public Point[] verticies;
 
+                public Quad()
+                {
+                    verticies = new Point[4];
+
+                    verticies[0] = Point.Origin;
+                    verticies[1] = Point.Origin;
+                    verticies[2] = Point.Origin;
+                    verticies[3] = Point.Origin;
+
+                }
                 public Quad(Point a, Point b, Point c, Point d)
                 {
                     verticies = new Point[4];
@@ -510,14 +554,19 @@ namespace PlotEquation
                     set { verticies[index] = value; }
                 }
             }
+
             //@ Make trianglemesh and quadmesh more like lists
             /// <summary>
             /// A collection of Triangles that represent a mesh.
             /// </summary>
-            public struct TriangleMesh
+            public class TriangleMesh
             {
                 public List<Triangle> triangles;
 
+                public TriangleMesh()
+                {
+                    triangles = new List<Triangle>();
+                }
                 public TriangleMesh(List<Triangle> mesh)
                 {
                     triangles = mesh;
@@ -569,10 +618,14 @@ namespace PlotEquation
             /// <summary>
             /// A collection of Quads that represent a mesh.
             /// </summary>
-            public struct QuadMesh
+            public class QuadMesh
             {
                 public List<Quad> quads;
 
+                public QuadMesh()
+                {
+                    quads = new List<Quad>();
+                }
                 public QuadMesh(List<Quad> mesh)
                 {
                     quads = mesh;
@@ -662,7 +715,8 @@ namespace PlotEquation
             /// <param name="title"></param>
             public void AddAll(RhinoDoc doc, string title = "")
             {
-                if (title.Length == 0 || !Rhino.DocObjects.Layer.IsValidName(title) || doc.Layers.FindByFullPath(title, -1) == -1)
+                RhinoApp.WriteLine("Count: " + points.Count);
+                if (title.Length == 0 || !Rhino.DocObjects.Layer.IsValidName(title))
                     title = doc.Layers.GetUnusedLayerName();
 
                 int index = doc.Layers.Add(title, System.Drawing.Color.Black);
@@ -677,7 +731,7 @@ namespace PlotEquation
                     index = doc.Layers.Add(child);
 
                     foreach (Point3d point in points)
-                        doc.Objects.FindId(doc.Objects.AddPoint(point)).Attributes.LayerIndex = index;
+                        doc.Objects.AddPoint(point, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
                 }
                 if (grid.Count != 0)
                 {
@@ -689,10 +743,7 @@ namespace PlotEquation
                         List<Guid> guids = new List<Guid>();
 
                         foreach (Point3d point in list)
-                        {
-                            guids.Add(doc.Objects.AddPoint(point));
-                            doc.Objects.FindId(guids.Last()).Attributes.LayerIndex = index;
-                        }
+                            guids.Add(doc.Objects.AddPoint(point, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index }));
 
                         doc.Groups.Add(guids);
                     }
@@ -704,7 +755,7 @@ namespace PlotEquation
                     index = doc.Layers.Add(child);
 
                     foreach (Polyline polyline in polylines)
-                        doc.Objects.FindId(doc.Objects.AddPolyline(polyline)).Attributes.LayerIndex = index;
+                        doc.Objects.AddPolyline(polyline, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
                 }
                 if (curves.Count != 0)
                 {
@@ -712,7 +763,7 @@ namespace PlotEquation
                     index = doc.Layers.Add(child);
 
                     foreach (Curve curve in curves)
-                        doc.Objects.FindId(doc.Objects.AddCurve(curve)).Attributes.LayerIndex = index;
+                        doc.Objects.AddCurve(curve, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
                 }
                 if (lineframe.Count != 0)
                 {
@@ -724,10 +775,7 @@ namespace PlotEquation
                         List<Guid> guids = new List<Guid>();
                         
                         foreach (Polyline polyline in list)
-                        {
-                            guids.Add(doc.Objects.AddPolyline(polyline));
-                            doc.Objects.FindId(guids.Last()).Attributes.LayerIndex = index;
-                        }
+                            guids.Add(doc.Objects.AddPolyline(polyline, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index }));
 
                         doc.Groups.Add(guids);
                     }
@@ -742,10 +790,7 @@ namespace PlotEquation
                         List<Guid> guids = new List<Guid>();
 
                         foreach (Curve curve in list)
-                        {
-                            guids.Add(doc.Objects.AddCurve(curve));
-                            doc.Objects.FindId(guids.Last()).Attributes.LayerIndex = index;
-                        }
+                            doc.Objects.AddCurve(curve, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
 
                         doc.Groups.Add(guids);
                     }
@@ -756,7 +801,7 @@ namespace PlotEquation
                     index = doc.Layers.Add(child);
 
                     foreach (Brep brep in triangles)
-                        doc.Objects.FindId(doc.Objects.AddBrep(brep)).Attributes.LayerIndex = index;
+                        doc.Objects.AddBrep(brep, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
                 }
                 if (quads.Count != 0)
                 {
@@ -764,7 +809,7 @@ namespace PlotEquation
                     index = doc.Layers.Add(child);
 
                     foreach (Brep brep in quads)
-                        doc.Objects.FindId(doc.Objects.AddBrep(brep)).Attributes.LayerIndex = index;
+                        doc.Objects.AddBrep(brep, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
                 }
                 if (surfaces.Count != 0)
                 {
@@ -772,10 +817,8 @@ namespace PlotEquation
                     index = doc.Layers.Add(child);
 
                     foreach (Surface surface in surfaces)
-                        doc.Objects.FindId(doc.Objects.AddSurface(surface)).Attributes.LayerIndex = index;
+                        doc.Objects.AddSurface(surface, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
                 }
-
-
             }
 
             /// <summary>
@@ -785,7 +828,7 @@ namespace PlotEquation
             /// <returns></returns>
             public static Point3d PointToRhino(Objects.Point point)
             {
-                return new Point3d(point.X, point.Y, point.Y);
+                return new Point3d(point.X, point.Y, point.Z);
             }
 
             /// <summary>
@@ -833,10 +876,16 @@ namespace PlotEquation
             /// Converts a Plot Polyline to a Rhino Curve.
             /// </summary>
             /// <param name="polyline"></param>
+            /// <param name="degree"></param>
             /// <returns></returns>
-            public static Curve CurveToRhino(Objects.Polyline polyline)
+            public static Curve CurveToRhino(Objects.Polyline polyline, int degree = 3)
             {
-                return PolylineToRhino(polyline).ToNurbsCurve();
+                List<Point3d> points = new List<Point3d>();
+
+                for (int i = 0; i < polyline.Count; i++)
+                    points.Add(PointToRhino(polyline[i]));
+
+                return Curve.CreateInterpolatedCurve(points, degree);
             }
 
             /// <summary>
@@ -961,7 +1010,12 @@ namespace PlotEquation
         /// <summary>
         /// Returns the mathematical object type of the Plot.
         /// </summary>
-        protected Type ObjectType => plotType;
+        public Type GetPlotType => plotType;
+
+        /// <summary>
+        /// Returns the RhinoObjects made when generating a Plot object.
+        /// </summary>
+        public RhinoObjects GetRhinoObjects() => rhinoObjects;
 
         /// <summary>
         /// Returns whether plot can safely be generated.
@@ -1155,9 +1209,9 @@ namespace PlotEquation
         /// </summary>
         protected Dictionary<string, Bounds> maxValues = new Dictionary<string, Bounds>
         {
-            { "X" , new Bounds(Double.MaxValue, Double.MaxValue) },
-            { "Y" , new Bounds(Double.MaxValue, Double.MaxValue) },
-            { "Z" , new Bounds(Double.MaxValue, Double.MaxValue) }
+            { "X" , new Bounds(Double.MinValue, Double.MaxValue) },
+            { "Y" , new Bounds(Double.MinValue, Double.MaxValue) },
+            { "Z" , new Bounds(Double.MinValue, Double.MaxValue) }
         };
 
         /// <summary>
@@ -1336,33 +1390,31 @@ namespace PlotEquation
         /// <param name="wireframe"></param>
         protected void CreateRhinoObjects(Objects.Wireframe wireframe)
         {
-            var o = new RhinoObjects();
-
             if (dimension == 2)
             {
                 // Point list creation
-                o.points = new List<Point3d>();
+                rhinoObjects.points = new List<Point3d>();
 
                 foreach (Objects.Polyline polyline in wireframe.uCurves)
                     foreach (Objects.Point point in polyline.Verticies)
-                        o.points.Add(RhinoObjects.PointToRhino(point));
+                        rhinoObjects.points.Add(RhinoObjects.PointToRhino(point));
 
                 // Polyline list creation
-                o.polylines = new List<Polyline>();
+                rhinoObjects.polylines = new List<Polyline>();
 
                 foreach (Objects.Polyline polyline in wireframe.uCurves)
-                    o.polylines.Add(RhinoObjects.PolylineToRhino(polyline));
+                    rhinoObjects.polylines.Add(RhinoObjects.PolylineToRhino(polyline));
 
                 // Curve list creation
-                o.curves = new List<Curve>();
+                rhinoObjects.curves = new List<Curve>();
 
                 foreach (Objects.Polyline polyline in wireframe.uCurves)
-                    o.curves.Add(RhinoObjects.CurveToRhino(polyline));
+                    rhinoObjects.curves.Add(RhinoObjects.CurveToRhino(polyline));
             }
             else if (dimension == 3)
             {
                 // Grid creation
-                o.grid = new List<List<Point3d>>();
+                rhinoObjects.grid = new List<List<Point3d>>();
 
                 foreach (Objects.Polyline polyline in wireframe.uCurves)
                 {
@@ -1371,25 +1423,25 @@ namespace PlotEquation
                     foreach (Objects.Point point in polyline.Verticies)
                         points.Add(RhinoObjects.PointToRhino(point));
 
-                    o.grid.Add(points);
+                    rhinoObjects.grid.Add(points);
                 }
 
                 // Lineframe creation
-                o.lineframe = RhinoObjects.LineframeToRhino(wireframe);
+                rhinoObjects.lineframe = RhinoObjects.LineframeToRhino(wireframe);
 
                 // Wireframe creation
-                o.wireframe = RhinoObjects.WireframeToRhino(wireframe);
+                rhinoObjects.wireframe = RhinoObjects.WireframeToRhino(wireframe);
 
                 // Triangle list creation
-                o.triangles = RhinoObjects.TriangleMeshToRhino(Objects.TriangleMesh.MakeFromWireframe(wireframe));
+                rhinoObjects.triangles = RhinoObjects.TriangleMeshToRhino(Objects.TriangleMesh.MakeFromWireframe(wireframe));
 
                 // Quad list creation
-                o.quads = RhinoObjects.QuadMeshToRhino(Objects.QuadMesh.MakeFromWireframe(wireframe));
+                rhinoObjects.quads = RhinoObjects.QuadMeshToRhino(Objects.QuadMesh.MakeFromWireframe(wireframe));
 
                 // Surface creation
-                o.surfaces = new List<Surface>
+                rhinoObjects.surfaces = new List<Surface>
                 {
-                    Create.SurfaceFromPoints(o.grid)
+                    Create.SurfaceFromPoints(rhinoObjects.grid)
                 };
             }
         }
@@ -1601,6 +1653,8 @@ namespace PlotEquation
                 success = true;
 
             rhinoObjects.Initialize();
+
+            RhinoApp.WriteLine("Successfully reached the end of constructor.");
         }
 
         /// <summary>
@@ -1620,12 +1674,12 @@ namespace PlotEquation
         protected override bool DetermineEquationType()
         {
             // Tests to make sure iteration values are valid
-            if (pointsPerCurve > 1 && pointsPerCurve < 999)
+            if (pointsPerCurve < 2 || pointsPerCurve > 999)
             {
                 RhinoApp.WriteLine("Points per curve must be bigger than 1 and less than 999.");
                 return false;
             }
-            if (curvesPerSurface > 1 && curvesPerSurface < 999)
+            if (curvesPerSurface < 2 || curvesPerSurface > 999)
             {
                 RhinoApp.WriteLine("Curves per surface must be bigger than 1 and less than 999.");
                 return false;
@@ -1748,6 +1802,8 @@ namespace PlotEquation
 
                     break;
             }
+
+            RhinoApp.WriteLine("Successfully reached the end of determining.");
 
             return ValidExpression(new Expression(expression));
         }
@@ -1881,7 +1937,7 @@ namespace PlotEquation
                 int curveDecimalCount = Math.Max(Calculate.DecimalCount(curveIteration), Calculate.DecimalCount(bounds[1].min)); ;
 
                 var wireframe = new Objects.Wireframe();
-
+                RhinoApp.WriteLine("HERE.");
                 for (double varTwo = bounds[1].min; varTwo <= bounds[1].max; varTwo += curveIteration)
                 {
                     varTwo = Math.Round(varTwo, curveDecimalCount);
@@ -1897,7 +1953,7 @@ namespace PlotEquation
                         eq.Parameters[vars[0]] = varOne;
 
                         result = Convert.ToDouble(eq.Evaluate());
-
+                        
                         if (Double.IsPositiveInfinity(result))
                             result = Double.MaxValue;
                         else if (Double.IsNegativeInfinity(result))
@@ -1906,7 +1962,7 @@ namespace PlotEquation
                             result = 0;
 
                         Objects.Point functionResult = ExpressionResult(eq, varOne, (dimension == 3) ? varTwo : result, (dimension == 3) ? result : varTwo);
-
+                        
                         // replace these lines
                         functionResult.X = Math.Min(functionResult.X, maxValues["X"].max);
                         functionResult.X = Math.Max(functionResult.X, maxValues["X"].min);
@@ -1914,7 +1970,7 @@ namespace PlotEquation
                         functionResult.Y = Math.Max(functionResult.Y, maxValues["Y"].min);
                         functionResult.Z = Math.Min(functionResult.Z, maxValues["Z"].max);
                         functionResult.Z = Math.Max(functionResult.Z, maxValues["Z"].min);
-
+                        
                         curve.Add(functionResult);
                     }
 
@@ -1926,7 +1982,7 @@ namespace PlotEquation
 
                 if (wrapCurves && dimension == 3)
                     wireframe.uCurves.Add(wireframe.uCurves[0]);
-
+                
                 CreateRhinoObjects(wireframe);
             }
             else
