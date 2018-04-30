@@ -1599,6 +1599,9 @@ namespace PlotEquation
         }
     }
 
+    /// <summary>
+    ///  Static class that creates Rhino objects.
+    /// </summary>,
     public static class Create
     {
         /// <summary>

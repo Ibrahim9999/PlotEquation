@@ -6,3 +6,11 @@ C:\Users\ixmib\Documents\Visual Studio 2017\Projects\PlotEquation\PlotEquation\o
 C:\Users\ixmib\Documents\Visual Studio 2017\Projects\PlotEquation\PlotEquation\obj\Debug\PlotEquation.pdb
 C:\Users\ixmib\Documents\Visual Studio 2017\Projects\PlotEquation\PlotEquation\bin\NCalc.dll
 C:\Users\ixmib\Documents\Visual Studio 2017\Projects\PlotEquation\PlotEquation\obj\Debug\PlotEquation.csproj.CopyComplete
+C:\Users\PC\Documents\Visual Studio 2017\Projects\PlotEquation\PlotEquation\bin\PlotEquation.dll
+C:\Users\PC\Documents\Visual Studio 2017\Projects\PlotEquation\PlotEquation\bin\PlotEquation.pdb
+C:\Users\PC\Documents\Visual Studio 2017\Projects\PlotEquation\PlotEquation\bin\NCalc.dll
+C:\Users\PC\Documents\Visual Studio 2017\Projects\PlotEquation\PlotEquation\obj\Debug\PlotEquation.csprojResolveAssemblyReference.cache
+C:\Users\PC\Documents\Visual Studio 2017\Projects\PlotEquation\PlotEquation\obj\Debug\PlotEquation.csproj.CoreCompileInputs.cache
+C:\Users\PC\Documents\Visual Studio 2017\Projects\PlotEquation\PlotEquation\obj\Debug\PlotEquation.csproj.CopyComplete
+C:\Users\PC\Documents\Visual Studio 2017\Projects\PlotEquation\PlotEquation\obj\Debug\PlotEquation.dll
+C:\Users\PC\Documents\Visual Studio 2017\Projects\PlotEquation\PlotEquation\obj\Debug\PlotEquation.pdb

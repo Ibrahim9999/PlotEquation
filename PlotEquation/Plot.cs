@@ -640,6 +640,145 @@ namespace PlotEquation
             public List<Surface> surfaces;
 
             /// <summary>
+            /// Initializes all the lists.
+            /// </summary>
+            public void Initialize()
+            {
+                points = new List<Point3d>();
+                grid = new List<List<Point3d>>();
+                polylines = new List<Polyline>();
+                curves = new List<Curve>();
+                lineframe = new List<List<Polyline>>();
+                wireframe = new List<List<Curve>>();
+                triangles = new List<Brep>();
+                quads = new List<Brep>();
+                surfaces = new List<Surface>();
+            }
+
+            /// <summary>
+            /// Adds all the objects to Rhino in separate layers.
+            /// </summary>
+            /// <param name="doc"></param>
+            /// <param name="title"></param>
+            public void AddAll(RhinoDoc doc, string title = "")
+            {
+                if (title.Length == 0 || !Rhino.DocObjects.Layer.IsValidName(title) || doc.Layers.FindByFullPath(title, -1) == -1)
+                    title = doc.Layers.GetUnusedLayerName();
+
+                int index = doc.Layers.Add(title, System.Drawing.Color.Black);
+                Rhino.DocObjects.Layer parent = doc.Layers[index];
+                
+                Rhino.DocObjects.Layer child = new Rhino.DocObjects.Layer();
+                child.ParentLayerId = parent.Id;
+
+                if (points.Count != 0)
+                {
+                    child.Name = "Points";
+                    index = doc.Layers.Add(child);
+
+                    foreach (Point3d point in points)
+                        doc.Objects.FindId(doc.Objects.AddPoint(point)).Attributes.LayerIndex = index;
+                }
+                if (grid.Count != 0)
+                {
+                    child.Name = "Grid";
+                    index = doc.Layers.Add(child);
+
+                    foreach (List<Point3d> list in grid)
+                    {
+                        List<Guid> guids = new List<Guid>();
+
+                        foreach (Point3d point in list)
+                        {
+                            guids.Add(doc.Objects.AddPoint(point));
+                            doc.Objects.FindId(guids.Last()).Attributes.LayerIndex = index;
+                        }
+
+                        doc.Groups.Add(guids);
+                    }
+
+                }
+                if (polylines.Count != 0)
+                {
+                    child.Name = "Polylines";
+                    index = doc.Layers.Add(child);
+
+                    foreach (Polyline polyline in polylines)
+                        doc.Objects.FindId(doc.Objects.AddPolyline(polyline)).Attributes.LayerIndex = index;
+                }
+                if (curves.Count != 0)
+                {
+                    child.Name = "Curves";
+                    index = doc.Layers.Add(child);
+
+                    foreach (Curve curve in curves)
+                        doc.Objects.FindId(doc.Objects.AddCurve(curve)).Attributes.LayerIndex = index;
+                }
+                if (lineframe.Count != 0)
+                {
+                    child.Name = "Lineframe";
+                    index = doc.Layers.Add(child);
+
+                    foreach (List<Polyline> list in lineframe)
+                    {
+                        List<Guid> guids = new List<Guid>();
+                        
+                        foreach (Polyline polyline in list)
+                        {
+                            guids.Add(doc.Objects.AddPolyline(polyline));
+                            doc.Objects.FindId(guids.Last()).Attributes.LayerIndex = index;
+                        }
+
+                        doc.Groups.Add(guids);
+                    }
+                }
+                if (wireframe.Count != 0)
+                {
+                    child.Name = "Wireframe";
+                    index = doc.Layers.Add(child);
+
+                    foreach (List<Curve> list in wireframe)
+                    {
+                        List<Guid> guids = new List<Guid>();
+
+                        foreach (Curve curve in list)
+                        {
+                            guids.Add(doc.Objects.AddCurve(curve));
+                            doc.Objects.FindId(guids.Last()).Attributes.LayerIndex = index;
+                        }
+
+                        doc.Groups.Add(guids);
+                    }
+                }
+                if (triangles.Count != 0)
+                {
+                    child.Name = "Triangles";
+                    index = doc.Layers.Add(child);
+
+                    foreach (Brep brep in triangles)
+                        doc.Objects.FindId(doc.Objects.AddBrep(brep)).Attributes.LayerIndex = index;
+                }
+                if (quads.Count != 0)
+                {
+                    child.Name = "Quads";
+                    index = doc.Layers.Add(child);
+
+                    foreach (Brep brep in quads)
+                        doc.Objects.FindId(doc.Objects.AddBrep(brep)).Attributes.LayerIndex = index;
+                }
+                if (surfaces.Count != 0)
+                {
+                    child.Name = "Surfaces";
+                    index = doc.Layers.Add(child);
+
+                    foreach (Surface surface in surfaces)
+                        doc.Objects.FindId(doc.Objects.AddSurface(surface)).Attributes.LayerIndex = index;
+                }
+
+
+            }
+
+            /// <summary>
             /// Converts a Plot Point to a Rhino Point.
             /// </summary>
             /// <param name="point"></param>
@@ -1460,6 +1599,8 @@ namespace PlotEquation
             }
             else
                 success = true;
+
+            rhinoObjects.Initialize();
         }
 
         /// <summary>
