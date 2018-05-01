@@ -6,6 +6,8 @@ using NCalc;
 using System.Linq;
 using System.Collections;
 //@ Add names to points in rhino
+//@ Fix 3D Cylindrical variable parsing
+//@ Fix error with "r=exp(sin(theta))-2*cos(4*theta)+pow(sin((2*theta-pi)/24),5)"
 namespace PlotEquation
 {
     /// <summary>
@@ -768,10 +770,13 @@ namespace PlotEquation
                 Rhino.DocObjects.Layer child = new Rhino.DocObjects.Layer();
                 child.ParentLayerId = parent.Id;
 
+                RhinoApp.WriteLine("Adding objects to Rhino...");
+
                 if (points.Count != 0)
                 {
                     child.Name = "Points";
                     index = doc.Layers.Add(child);
+                    doc.Layers.FindIndex(index).IsVisible = false;
 
                     foreach (Point3d point in points)
                         doc.Objects.AddPoint(point, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
@@ -782,6 +787,7 @@ namespace PlotEquation
                 {
                     child.Name = "Grid";
                     index = doc.Layers.Add(child);
+                    doc.Layers.FindIndex(index).IsVisible = false;
 
                     foreach (List<Point3d> list in grid)
                     {
@@ -799,6 +805,7 @@ namespace PlotEquation
                 {
                     child.Name = "Polylines";
                     index = doc.Layers.Add(child);
+                    doc.Layers.FindIndex(index).IsVisible = false;
 
                     foreach (Polyline polyline in polylines)
                         doc.Objects.AddPolyline(polyline, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
@@ -809,6 +816,7 @@ namespace PlotEquation
                 {
                     child.Name = "Curves";
                     index = doc.Layers.Add(child);
+                    doc.Layers.FindIndex(index).IsVisible = (surfaces.Count == 0);
 
                     foreach (Curve curve in curves)
                         doc.Objects.AddCurve(curve, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
@@ -819,6 +827,7 @@ namespace PlotEquation
                 {
                     child.Name = "Lineframe";
                     index = doc.Layers.Add(child);
+                    doc.Layers.FindIndex(index).IsVisible = false;
 
                     foreach (List<Polyline> list in lineframe)
                     {
@@ -836,6 +845,7 @@ namespace PlotEquation
                 {
                     child.Name = "Wireframe";
                     index = doc.Layers.Add(child);
+                    doc.Layers.FindIndex(index).IsVisible = false;
 
                     foreach (List<Curve> list in wireframe)
                     {
@@ -851,6 +861,7 @@ namespace PlotEquation
                 {
                     child.Name = "Triangles";
                     index = doc.Layers.Add(child);
+                    doc.Layers.FindIndex(index).IsVisible = false;
 
                     foreach (Brep brep in triangles)
                         doc.Objects.AddBrep(brep, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
@@ -861,6 +872,7 @@ namespace PlotEquation
                 {
                     child.Name = "Quads";
                     index = doc.Layers.Add(child);
+                    doc.Layers.FindIndex(index).IsVisible = false;
 
                     foreach (Brep brep in quads)
                         doc.Objects.AddBrep(brep, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
@@ -871,6 +883,7 @@ namespace PlotEquation
                 {
                     child.Name = "Surfaces";
                     index = doc.Layers.Add(child);
+                    doc.Layers.FindIndex(index).IsVisible = (quads.Count != 0);
 
                     foreach (Surface surface in surfaces)
                         doc.Objects.AddSurface(surface, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
@@ -1464,6 +1477,8 @@ namespace PlotEquation
         /// <param name="wireframe"></param>
         protected void CreateRhinoObjects(RhinoDoc doc, Objects.Wireframe wireframe)
         {
+            RhinoApp.WriteLine("Creating objects...");
+
             if (dimension == 2)
             {
                 RhinoApp.WriteLine("Count: " + wireframe.uCurves[0].Count);
@@ -1760,8 +1775,6 @@ namespace PlotEquation
                 success = true;
 
             rhinoObjects.Initialize();
-
-            RhinoApp.WriteLine("Successfully reached the end of constructor.");
         }
 
         /// <summary>
