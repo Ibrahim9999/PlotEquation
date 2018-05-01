@@ -37,8 +37,19 @@ namespace PlotEquation
 
             //new Eto.Forms.Application().Run(new MyForm());
 
+            int dimension = 2;
+            Result rc = RhinoGet.GetInteger("Dimension", true, ref dimension);
+
             string expression = "z=sin(x)+sin(y)";
-            StandardEquation eq = new StandardEquation(expression, new List<Bounds> { new Bounds(-10, 10), new Bounds(-10, 10) });
+            rc = RhinoGet.GetString("Equation", true, ref expression);
+
+            StandardEquation eq;
+
+            if (dimension == 2)
+                eq = new StandardEquation(expression, new List<Bounds> { new Bounds(-10, 10) });
+            else
+                eq = new StandardEquation(expression, new List<Bounds> { new Bounds(-10, 10), new Bounds(-10, 10) });
+
             eq.Generate();
             eq.GetRhinoObjects().AddAll(doc, expression);
 

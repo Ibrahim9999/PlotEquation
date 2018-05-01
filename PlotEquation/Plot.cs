@@ -47,6 +47,7 @@ namespace PlotEquation
                 }
 
                 public static Point Origin => new Point(0, 0, 0);
+                public static Point NaN => new Point(Double.NaN, Double.NaN, Double.NaN);
 
                 public override string ToString()
                 {
@@ -715,7 +716,6 @@ namespace PlotEquation
             /// <param name="title"></param>
             public void AddAll(RhinoDoc doc, string title = "")
             {
-                RhinoApp.WriteLine("Count: " + points.Count);
                 if (title.Length == 0 || !Rhino.DocObjects.Layer.IsValidName(title))
                     title = doc.Layers.GetUnusedLayerName();
 
@@ -1409,6 +1409,7 @@ namespace PlotEquation
         {
             if (dimension == 2)
             {
+                RhinoApp.WriteLine("Count: " + wireframe.uCurves[0].Count);
                 // Point list creation
                 rhinoObjects.points = new List<Point3d>();
 
@@ -1420,13 +1421,41 @@ namespace PlotEquation
                 rhinoObjects.polylines = new List<Polyline>();
 
                 foreach (Objects.Polyline polyline in wireframe.uCurves)
-                    rhinoObjects.polylines.Add(RhinoObjects.PolylineToRhino(polyline));
+                {
+                    Objects.Polyline pl = new Objects.Polyline();
+
+                    foreach (Objects.Point point in polyline.Verticies)
+                        if (point == Objects.Point.NaN && pl.Count > 1)
+                        {
+                            rhinoObjects.polylines.Add(RhinoObjects.PolylineToRhino(pl));
+                            pl = new Objects.Polyline();
+                        }
+                        else
+                            pl.Add(point);
+
+                    if (pl.Count > 1)
+                        rhinoObjects.polylines.Add(RhinoObjects.PolylineToRhino(pl));
+                }
 
                 // Curve list creation
                 rhinoObjects.curves = new List<Curve>();
 
                 foreach (Objects.Polyline polyline in wireframe.uCurves)
-                    rhinoObjects.curves.Add(RhinoObjects.CurveToRhino(polyline));
+                {
+                    Objects.Polyline pl = new Objects.Polyline();
+
+                    foreach (Objects.Point point in polyline.Verticies)
+                        if (point == Objects.Point.NaN && pl.Count > 1)
+                        {
+                            rhinoObjects.curves.Add(RhinoObjects.CurveToRhino(pl));
+                            pl = new Objects.Polyline();
+                        }
+                        else
+                            pl.Add(point);
+
+                    if (pl.Count > 1)
+                        rhinoObjects.curves.Add(RhinoObjects.CurveToRhino(pl));
+                }
             }
             else if (dimension == 3)
             {
@@ -1453,13 +1482,18 @@ namespace PlotEquation
                 rhinoObjects.triangles = RhinoObjects.TriangleMeshToRhino(Objects.TriangleMesh.MakeFromWireframe(wireframe));
 
                 // Quad list creation
-                rhinoObjects.quads = RhinoObjects.QuadMeshToRhino(Objects.QuadMesh.MakeFromWireframe(wireframe));
+                rhinoObjects.quads = Brep.JoinBreps(RhinoObjects.QuadMeshToRhino(Objects.QuadMesh.MakeFromWireframe(wireframe)), .00000001).ToList();
 
                 // Surface creation
                 rhinoObjects.surfaces = new List<Surface>
                 {
                     Create.SurfaceFromPoints(rhinoObjects.grid, 3, 3, wrapPoints, wrapCurves)
                 };
+
+                if (rhinoObjects.surfaces.Count == 0)
+                {
+
+                }
             }
         }
 
@@ -1495,11 +1529,11 @@ namespace PlotEquation
                     f = Double.NaN;
 
                 if (args.Parameters.Length > 0)
-                    d = System.Convert.ToDouble(args.Parameters[0].Evaluate());
+                    d = Convert.ToDouble(args.Parameters[0].Evaluate());
                 if (args.Parameters.Length > 1)
-                    e = System.Convert.ToDouble(args.Parameters[1].Evaluate());
+                    e = Convert.ToDouble(args.Parameters[1].Evaluate());
                 if (args.Parameters.Length > 2)
-                    f = System.Convert.ToDouble(args.Parameters[2].Evaluate());
+                    f = Convert.ToDouble(args.Parameters[2].Evaluate());
 
                 switch (name)
                 {
@@ -1513,7 +1547,7 @@ namespace PlotEquation
                         args.Result = Math.Sqrt(d);
                         break;
                     case "round":
-                        args.Result = Math.Round(d, System.Convert.ToInt32(e));
+                        args.Result = Math.Round(d, Convert.ToInt32(e));
                         break;
                     case "sign":
                         if (d > 0)
@@ -1652,7 +1686,7 @@ namespace PlotEquation
         /// </summary>
         /// <param name="expression"></param>
         /// <param name="bounds"></param>
-        public StandardEquation(string expression, List<Bounds> bounds, int pointsPerCurve = 10, int curvesPerSurface = 10)
+        public StandardEquation(string expression, List<Bounds> bounds, int pointsPerCurve = 100, int curvesPerSurface = 100)
         {
             plotType = Plot.Type.STANDARD_EQUATION;
             this.expression = expression;
@@ -1983,24 +2017,29 @@ namespace PlotEquation
 
                         result = Convert.ToDouble(eq.Evaluate());
                         
-                        if (Double.IsPositiveInfinity(result))
-                            result = Double.MaxValue;
-                        else if (Double.IsNegativeInfinity(result))
-                            result = Double.MinValue;
-                        else if (Double.IsNaN(result))
-                            result = 0;
+                        if (dimension == 2 && (Double.IsNaN(result) || Double.IsInfinity(result)))
+                            curve.Add(Objects.Point.NaN);
+                        else
+                        {
+                            if (Double.IsPositiveInfinity(result))
+                                result = Double.MaxValue;
+                            else if (Double.IsNegativeInfinity(result))
+                                result = Double.MinValue;
+                            else if (Double.IsNaN(result))
+                                result = 0;
 
-                        Objects.Point functionResult = ExpressionResult(eq, varOne, (dimension == 3) ? varTwo : result, (dimension == 3) ? result : varTwo);
-                        
-                        //@ replace these lines
-                        functionResult.X = Math.Min(functionResult.X, maxValues["X"].max);
-                        functionResult.X = Math.Max(functionResult.X, maxValues["X"].min);
-                        functionResult.Y = Math.Min(functionResult.Y, maxValues["Y"].max);
-                        functionResult.Y = Math.Max(functionResult.Y, maxValues["Y"].min);
-                        functionResult.Z = Math.Min(functionResult.Z, maxValues["Z"].max);
-                        functionResult.Z = Math.Max(functionResult.Z, maxValues["Z"].min);
-                        
-                        curve.Add(functionResult);
+                            var functionResult = ExpressionResult(eq, varOne, (dimension == 3) ? varTwo : result, (dimension == 3) ? result : varTwo);
+
+                            //@ replace these lines
+                            functionResult.X = Math.Min(functionResult.X, maxValues["X"].max);
+                            functionResult.X = Math.Max(functionResult.X, maxValues["X"].min);
+                            functionResult.Y = Math.Min(functionResult.Y, maxValues["Y"].max);
+                            functionResult.Y = Math.Max(functionResult.Y, maxValues["Y"].min);
+                            functionResult.Z = Math.Min(functionResult.Z, maxValues["Z"].max);
+                            functionResult.Z = Math.Max(functionResult.Z, maxValues["Z"].min);
+
+                            curve.Add(functionResult);
+                        }
                     }
 
                     if (wrapPoints)
