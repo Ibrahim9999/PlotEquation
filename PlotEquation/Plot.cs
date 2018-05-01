@@ -116,6 +116,12 @@ namespace PlotEquation
                 {
                     points = new List<List<Point>>();
                 }
+                public Grid(int u, int v)
+                {
+                    points = new List<List<Point>>();
+
+                    Reset(u, v);
+                }
                 public Grid(List<List<Point>> points)
                 {
                     this.points = points;
@@ -139,7 +145,25 @@ namespace PlotEquation
                 {
                     get { return points.Count; }
                 }
-                
+
+                /// <summary>
+                /// Creates a new u x v grid of points.
+                /// </summary>
+                /// <param name="u"></param>
+                /// <param name="v"></param>
+                public void Reset(int u, int v)
+                {
+                    points = new List<List<Point>>();
+
+                    for (int i = 0; i < u; i++)
+                    {
+                        points.Add(new List<Point>());
+
+                        for (int j = 0; j < v; j++)
+                            points[i].Add(Point.Origin);
+                    }
+                }
+
                 /// <summary>
                 /// Changes value of point at index in grid.
                 /// </summary>
@@ -402,6 +426,25 @@ namespace PlotEquation
                             points.Add(point);
 
                     return points;
+                }
+
+                /// <summary>
+                /// Converts the Wireframe into a Grid.
+                /// </summary>
+                /// <param name="useU"></param>
+                /// <returns></returns>
+                public Grid ToGrid(bool useU = true)
+                {
+                    List<Polyline> p = useU ? uCurves : vCurves;
+                    Grid g = new Grid();
+
+                    g.Reset(p.Count, p[0].Count);
+
+                    for (int i = 0; i < p.Count; i++)
+                        for (int j = 0; j < p[i].Count; j++)
+                            g[i][j] = uCurves[i][j];
+
+                    return g;
                 }
 
                 /// <summary>
@@ -847,6 +890,16 @@ namespace PlotEquation
             }
 
             /// <summary>
+            /// Converts a Rhino Point to a Plot Point.
+            /// </summary>
+            /// <param name="point"></param>
+            /// <returns></returns>
+            public static Objects.Point Point3dToPlot(Point3d point)
+            {
+                return new Objects.Point(point.X, point.Y, point.Z);
+            }
+
+            /// <summary>
             /// Converts a Plot Grid object to a list of Rhino Point3ds.
             /// </summary>
             /// <param name="grid"></param>
@@ -856,8 +909,12 @@ namespace PlotEquation
                 List<List<Point3d>> g = new List<List<Point3d>>();
 
                 for (int i = 0; i < grid.Count; i++)
+                {
+                    g.Add(new List<Point3d>());
+
                     for (int j = 0; j < grid[i].Count; j++)
-                        g[i][j] = PointToRhino(grid[i][j]);
+                        g[i].Add(PointToRhino(grid[i][j]));
+                }
 
                 return g;
             }
@@ -1135,7 +1192,7 @@ namespace PlotEquation
         /// <summary>
         /// Creates objects.
         /// </summary>
-        public abstract void Generate();
+        public abstract void Generate(RhinoDoc doc);
     }
 
     /// <summary>
@@ -1405,7 +1462,7 @@ namespace PlotEquation
         /// Creates all the Rhino objects from Plot Wireframe.
         /// </summary>
         /// <param name="wireframe"></param>
-        protected void CreateRhinoObjects(Objects.Wireframe wireframe)
+        protected void CreateRhinoObjects(RhinoDoc doc, Objects.Wireframe wireframe)
         {
             if (dimension == 2)
             {
@@ -1479,7 +1536,7 @@ namespace PlotEquation
                 rhinoObjects.wireframe = RhinoObjects.WireframeToRhino(wireframe);
 
                 // Triangle list creation
-                rhinoObjects.triangles = RhinoObjects.TriangleMeshToRhino(Objects.TriangleMesh.MakeFromWireframe(wireframe));
+                rhinoObjects.triangles = Brep.JoinBreps(RhinoObjects.TriangleMeshToRhino(Objects.TriangleMesh.MakeFromWireframe(wireframe)), .00000001).ToList();
 
                 // Quad list creation
                 rhinoObjects.quads = Brep.JoinBreps(RhinoObjects.QuadMeshToRhino(Objects.QuadMesh.MakeFromWireframe(wireframe)), .00000001).ToList();
@@ -1489,11 +1546,10 @@ namespace PlotEquation
                 {
                     Create.SurfaceFromPoints(rhinoObjects.grid, 3, 3, wrapPoints, wrapCurves)
                 };
-
-                if (rhinoObjects.surfaces.Count == 0)
-                {
-
-                }
+                //@ Fix wireframe lack when NaN appears somewhere
+                if (rhinoObjects.surfaces[0] == null)
+                    foreach (Brep brep in rhinoObjects.quads)
+                        rhinoObjects.surfaces.Add(Create.SurfaceFromPoints(Create.GridFromBrep(brep), 3, 3, wrapPoints, wrapCurves));
             }
         }
 
@@ -1980,7 +2036,7 @@ namespace PlotEquation
         /// <summary>
         /// Creates equation objects.
         /// </summary>
-        public override void Generate()
+        public override void Generate(RhinoDoc doc)
         {
             if (success)
             {
@@ -2054,7 +2110,7 @@ namespace PlotEquation
                 if (dimension == 3)
                     wireframe.MakeVFromU();
 
-                CreateRhinoObjects(wireframe);
+                CreateRhinoObjects(doc, wireframe);
             }
             else
                 RhinoApp.WriteLine("Unable to generate equation.");

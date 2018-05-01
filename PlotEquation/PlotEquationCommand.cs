@@ -48,9 +48,9 @@ namespace PlotEquation
             if (dimension == 2)
                 eq = new StandardEquation(expression, new List<Bounds> { new Bounds(-10, 10) });
             else
-                eq = new StandardEquation(expression, new List<Bounds> { new Bounds(-10, 10), new Bounds(-10, 10) });
+                eq = new StandardEquation(expression, new List<Bounds> { new Bounds(-10, 10), new Bounds(-10, 10) }, 100, 100);
 
-            eq.Generate();
+            eq.Generate(doc);
             eq.GetRhinoObjects().AddAll(doc, expression);
 
             // ---

@@ -1605,6 +1605,132 @@ namespace PlotEquation
     public static class Create
     {
         /// <summary>
+        /// Generates a 2D grid of points from a brep that represents a joined
+        /// array of quads.
+        /// </summary>
+        /// <remarks>
+        /// Currently works only if the number of columns is constant in each
+        /// row.
+        /// </remarks>
+        /// <param name="brep"></param>
+        /// <returns></returns>
+        public static List<List<Point3d>> GridFromBrep(Brep brep)
+        {
+            var grid = new List<List<Point3d>>();
+
+            Point3d end = brep.Faces[0].ToBrep().Edges[0].PointAtEnd;
+            int u = 0;
+            int v = 0;
+
+            for (int i = 1; i < brep.Faces.Count; i++)
+                if (end == brep.Faces[i].ToBrep().Edges[0].PointAtStart)
+                {
+                    u = i;
+                    break;
+                }
+
+            v = brep.Faces.Count / u;
+
+            for (int i = 0; i < u; i++)
+            {
+                grid.Add(new List<Point3d>());
+
+                grid[i].Add(brep.Faces[i].ToBrep().Edges[0].PointAtStart);
+
+                for (int j = 0; j < v; j++)
+                    grid[i].Add(brep.Faces[j * u + i].ToBrep().Edges[0].PointAtEnd);
+            }
+
+            return grid;
+        }
+
+        /// <summary>
+        /// Generates a lineframe from a brep that represents a joined array of
+        /// quads.
+        /// </summary>
+        /// <remarks>
+        /// This method uses GridFromBrep to generate a grid of points, then
+        /// translates them to polylines. As a result, it currently works only
+        /// if the number of columns is constant in each row.
+        /// </remarks>
+        /// <param name="brep"></param>
+        /// <returns></returns>
+        public static List<List<Polyline>> LineframeFromBrep(Brep brep)
+        {
+            var grid = GridFromBrep(brep);
+            var lineframe = new List<List<Polyline>>();
+
+            lineframe.Add(new List<Polyline>());
+            lineframe.Add(new List<Polyline>());
+
+            for (int i = 0; i < grid.Count; i++)
+            {
+                var polyline = new Polyline();
+
+                for (int j = 0; j < grid[i].Count; j++)
+                    polyline.Add(grid[i][j]);
+
+                lineframe[0].Add(polyline);
+            }
+
+            for (int i = 0; i < grid[0].Count; i++)
+            {
+                var polyline = new Polyline();
+
+                for (int j = 0; j < grid.Count; j++)
+                    polyline.Add(grid[j][i]);
+
+                lineframe[1].Add(polyline);
+            }
+
+            return lineframe;
+
+        }
+
+        /// <summary>
+        /// Generates a wireframe from a brep that represents a joined array of
+        /// quads.
+        /// </summary>
+        /// <remarks>
+        /// This method uses GridFromBrep to generate a grid of points, then
+        /// translates them to curves. As a result, it currently works only if
+        /// the number of columns is constant in each row.
+        /// </remarks>
+        /// <param name="brep"></param>
+        /// <param name="degree"></param>
+        /// <returns></returns>
+        public static List<List<Curve>> WireframeFromBrep(Brep brep, int degree = 3)
+        {
+            var grid = GridFromBrep(brep);
+            var wireframe = new List<List<Curve>>();
+
+            wireframe.Add(new List<Curve>());
+            wireframe.Add(new List<Curve>());
+
+            for (int i = 0; i < grid.Count; i++)
+            {
+                var curve = new List<Point3d>();
+
+                for (int j = 0; j < grid[i].Count; j++)
+                    curve.Add(grid[i][j]);
+
+                wireframe[0].Add(Curve.CreateInterpolatedCurve(curve, 3));
+            }
+
+            for (int i = 0; i < grid[0].Count; i++)
+            {
+                var curve = new List<Point3d>();
+
+                for (int j = 0; j < grid.Count; j++)
+                    curve.Add(grid[j][i]);
+
+                wireframe[0].Add(Curve.CreateInterpolatedCurve(curve, 3));
+            }
+
+            return wireframe;
+        }
+
+        /// <summary>
         /// Creates a Rhino Surface using a 2D list of points.
         /// </summary>
         /// <param name="points"></param>
