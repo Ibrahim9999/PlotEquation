@@ -4,7 +4,6 @@ using Rhino;
 using Rhino.Geometry;
 using NCalc;
 using System.Linq;
-using System.Collections;
 
 namespace PlotEquation
 {
