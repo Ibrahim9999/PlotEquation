@@ -3,6 +3,7 @@ using System.Linq;
 using System.Collections.Generic;
 using NCalc;
 using Rhino.Geometry;
+using Rhino;
 
 namespace PlotEquation
 {
@@ -1616,11 +1617,17 @@ namespace PlotEquation
         /// <returns></returns>
         public static List<List<Point3d>> GridFromBrep(Brep brep)
         {
+            if (brep.Faces.Count == 0)
+            {
+                RhinoApp.WriteLine("Brep has no faces.");
+                return new List<List<Point3d>>();
+            }
+
             var grid = new List<List<Point3d>>();
 
             Point3d end = brep.Faces[0].ToBrep().Edges[0].PointAtEnd;
-            int u = 0;
-            int v = 0;
+            int u = 1;
+            int v = 1;
 
             for (int i = 1; i < brep.Faces.Count; i++)
                 if (end == brep.Faces[i].ToBrep().Edges[0].PointAtStart)
@@ -1744,7 +1751,15 @@ namespace PlotEquation
             foreach (List<Point3d> list in points)
                 p.AddRange(list);
 
-            return NurbsSurface.CreateThroughPoints(p, points.Count, points[0].Count, uDegree, vDegree, uClosed, vClosed);
+            try
+            {
+                return NurbsSurface.CreateThroughPoints(p, points.Count, points[0].Count, uDegree, vDegree, uClosed, vClosed);
+            }
+            catch (Exception e)
+            {
+                //RhinoApp.WriteLine(e.Message);
+                return null;
+            }
         }
     }
 }
