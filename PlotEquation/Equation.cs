@@ -78,6 +78,17 @@ namespace PlotEquation
         {
             "theta", "r", "z", "s"
         };
+        /// <summary>
+        /// These lists contain the parametric variables that can be used in equations.
+        /// </summary>
+        /// <remarks>
+        /// The order the variables are in these lists matter, as the first
+        /// variable is the curve variable and the last two are for surfaces.
+        /// </remarks>
+        public readonly List<string> parametricVars = new List<string>()
+        {
+            "t", "u", "v", "s"
+        };
 
         /// <summary>
         /// List of variables that's used in equation.
@@ -274,7 +285,7 @@ namespace PlotEquation
         /// Creates all the Rhino objects from Plot Wireframe.
         /// </summary>
         /// <param name="wireframe"></param>
-        protected void CreateRhinoObjects(RhinoDoc doc, Objects.Wireframe wireframe)
+        protected void CreateRhinoObjects(Objects.Wireframe wireframe)
         {
             RhinoApp.WriteLine("Creating objects...");
 
@@ -437,13 +448,13 @@ namespace PlotEquation
                         args.Result = Math.Abs(d);
                         break;
                     case "pow":
-                        args.Result = Math.Pow(d, e);
+                        args.Result = Math.Pow(d, Double.IsNaN(e) ? 2 : e);
                         break;
                     case "sqrt":
                         args.Result = Math.Sqrt(d);
                         break;
                     case "round":
-                        args.Result = Math.Round(d, Convert.ToInt32(e));
+                        args.Result = Math.Round(d, Double.IsNaN(e) ? 0 : Convert.ToInt32(e));
                         break;
                     case "sign":
                         if (d > 0)
@@ -454,10 +465,10 @@ namespace PlotEquation
                             args.Result = 0;
                         break;
                     case "min":
-                        args.Result = Math.Min(d, e);
+                        args.Result = Math.Min(d, Double.IsNaN(e) ? d : e);
                         break;
                     case "max":
-                        args.Result = Math.Max(d, e);
+                        args.Result = Math.Max(d, Double.IsNaN(e) ? d : e);
                         break;
                     case "ceiling":
                         args.Result = Math.Ceiling(d);
@@ -473,7 +484,7 @@ namespace PlotEquation
                         break;
                     case "remainder":
                     case "ieeeremainder":
-                        args.Result = Math.IEEERemainder(d, e);
+                        args.Result = Math.IEEERemainder(d, Double.IsNaN(e) ? 1 : e);
                         break;
                     case "ln":
                         args.Result = Math.Log(d);
@@ -546,6 +557,7 @@ namespace PlotEquation
                         break;
                     case "randint":
                         random = new Random((int)DateTime.Now.Ticks & 0x0000FFFF);
+                        e = Double.IsNaN(e) ? 1 : e;
                         if (d < e)
                             args.Result = (int)d + (int)((e - d + 1) * random.NextDouble());
                         else
@@ -553,6 +565,7 @@ namespace PlotEquation
                         break;
                     case "randdec":
                         random = new Random((int)DateTime.Now.Ticks & 0x0000FFFF);
+                        e = Double.IsNaN(e) ? 1 : e;
                         if (d < e)
                             args.Result = d + (e - d + 1) * random.NextDouble();
                         else
@@ -632,22 +645,19 @@ namespace PlotEquation
 
             // List of variables that pertains to equation type
             List<string> vars = new List<string>();
-
+            
             // Determines what kind of equation the expression is
-            /*
-             * theta + phi (2D)
-             */
-            if (ValidVariables(cartesianVars) && TestEquals(cartesianVars))
+            if ((ContainsRightVariables(cartesianVars) || !ContainsWrongVariables(cartesianVars)) && TestEquals(cartesianVars))
             {
                 equationType = Type.CARTESIAN;
                 vars = cartesianVars;
             }
-            else if (ValidVariables(sphericalVars) && TestEquals(sphericalVars))
+            else if ((ContainsRightVariables(sphericalVars) || !ContainsWrongVariables(sphericalVars)) && TestEquals(sphericalVars))
             {
                 equationType = Type.SPHERICAL;
                 vars = sphericalVars;
             }
-            else if (ValidVariables(cylindricalVars) && TestEquals(cylindricalVars))
+            else if ((ContainsRightVariables(cylindricalVars) || !ContainsWrongVariables(cylindricalVars)) && TestEquals(cylindricalVars))
             {
                 equationType = Type.CYLINDRICAL;
                 vars = cylindricalVars;
@@ -663,7 +673,7 @@ namespace PlotEquation
                 return false;
             }
 
-            // Bools for simplifying code, so I don't have to do
+            // Bools for simplifying code, so I don't have to use
             // expression.Contains() all the time
             List<bool> exists = new List<bool>();
             bool equalsExists = expression.Contains("=");
@@ -682,12 +692,17 @@ namespace PlotEquation
                 case 2:
                     vars.RemoveAt(vars.Count - 1);
 
-                    if ((exists[0] || ContainsRightVariables(new List<string>() { vars[0] })) && ValidEquals(vars, VariablesUsed.ONE) && !ContainsWrongVariables(new List<string>() { vars[0] }))
+                    RhinoApp.WriteLine("exists[0]: " + exists[0]);
+                    RhinoApp.WriteLine("ContainsRightVariables(new List<string>() { vars[0] }): " + ContainsRightVariables(new List<string>() { vars[0] }));
+                    RhinoApp.WriteLine("!ContainsWrongVariables(new List<string>() { vars[0] }): " + !ContainsWrongVariables(new List<string>() { vars[0] }));
+                    RhinoApp.WriteLine("ValidEquals(vars, VariablesUsed.ONE): " + ValidEquals(vars, VariablesUsed.ONE));
+
+                    if ((exists[0] || ContainsRightVariables(new List<string>() { vars[0] }) || !ContainsWrongVariables(new List<string>() { vars[0] })) && ValidEquals(vars, VariablesUsed.ONE) && !ContainsWrongVariables(new List<string>() { vars[0] }))
                     {
                         variablesUsed = VariablesUsed.ONE;
                         simplifiedEq += vars[0];
                     }
-                    else if ((exists[1] || ContainsRightVariables(new List<string>() { vars[1] })) && ValidEquals(vars, VariablesUsed.TWO) && !ContainsWrongVariables(new List<string>() { vars[1] }))
+                    else if ((exists[1] || ContainsRightVariables(new List<string>() { vars[1] }) || !ContainsWrongVariables(new List<string>() { vars[1] })) && ValidEquals(vars, VariablesUsed.TWO) && !ContainsWrongVariables(new List<string>() { vars[1] }))
                     {
                         variablesUsed = VariablesUsed.TWO;
                         simplifiedEq += vars[1];
@@ -705,7 +720,6 @@ namespace PlotEquation
                     RhinoApp.WriteLine("phi exists: " + exists[2]);
                     RhinoApp.WriteLine("anything other than theta and phi: " + ContainsWrongVariables(new List<string>() { vars[2], vars[0] }, true));
                     RhinoApp.WriteLine("valid equals (one_two): " + ValidEquals(vars, VariablesUsed.ONE_TWO));
-                    RhinoApp.WriteLine("valid equals (one_three): " + ValidEquals(vars, VariablesUsed.ONE_THREE));
                     */
                     if (equationType == Equation.Type.SPHERICAL && (exists[0] || ContainsRightVariables(new List<string>() { vars[0] })) && ValidEquals(vars, VariablesUsed.ONE_THREE) && !ContainsWrongVariables(new List<string>() { vars[0] }))
                     {
@@ -940,7 +954,7 @@ namespace PlotEquation
         /// <summary>
         /// Creates equation objects.
         /// </summary>
-        public override void Generate(RhinoDoc doc)
+        public override void Generate()
         {
             if (success)
             {
@@ -1014,7 +1028,7 @@ namespace PlotEquation
                 if (dimension == 3)
                     wireframe.MakeVFromU();
 
-                CreateRhinoObjects(doc, wireframe);
+                CreateRhinoObjects(wireframe);
             }
             else
                 RhinoApp.WriteLine("Unable to generate equation.");
@@ -1340,7 +1354,7 @@ namespace PlotEquation
         /// <summary>
         /// Creates equation objects.
         /// </summary>
-        public override void Generate(RhinoDoc doc)
+        public override void Generate()
         {
             if (success)
             {
@@ -1414,7 +1428,7 @@ namespace PlotEquation
                 if (dimension == 3)
                     wireframe.MakeVFromU();
 
-                CreateRhinoObjects(doc, wireframe);
+                CreateRhinoObjects(wireframe);
             }
             else
                 RhinoApp.WriteLine("Unable to generate equation.");

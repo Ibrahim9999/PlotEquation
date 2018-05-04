@@ -8,9 +8,9 @@ using Rhino.Input.Custom;
 
 namespace PlotEquation
 {
-    public class EquationCommand : Command
+    public class EquationCurveCommand : Command
     {
-        public EquationCommand()
+        public EquationCurveCommand()
         {
             // Rhino only creates one instance of each command class defined in a
             // plug-in, so it is safe to store a refence in a static property.
@@ -18,7 +18,7 @@ namespace PlotEquation
         }
 
         ///<summary>The only instance of this command.</summary>
-        public static EquationCommand Instance
+        public static EquationCurveCommand Instance
         {
             get; private set;
         }
@@ -26,7 +26,7 @@ namespace PlotEquation
         ///<returns>The command name as it appears on the Rhino command line.</returns>
         public override string EnglishName
         {
-            get { return "Equation"; }
+            get { return "EquationCurve"; }
         }
 
         protected override Result RunCommand(RhinoDoc doc, RunMode mode)
@@ -37,21 +37,62 @@ namespace PlotEquation
 
             //new Eto.Forms.Application().Run(new MyForm());
 
-            int dimension = 2;
-            Result rc = RhinoGet.GetInteger("Dimension", true, ref dimension);
+            string expression = "";
+            Result rc = RhinoGet.GetString("Equation", true, ref expression);
 
-            string expression = "z=sin(x)+sin(y)";
-            rc = RhinoGet.GetString("Equation", true, ref expression);
+            StandardEquation eq = new StandardEquation(expression, new List<Bounds> { new Bounds(-10, 10) }, 1000);
 
-            StandardEquation eq;
+            if (eq.Successful())
+            {
+                eq.Generate();
+                eq.GetRhinoObjects().AddAll(doc, expression);
+            }
 
-            if (dimension == 2)
-                eq = new StandardEquation(expression, new List<Bounds> { new Bounds(-10, 10) });
-            else
-                eq = new StandardEquation(expression, new List<Bounds> { new Bounds(-10, 10), new Bounds(-10, 10) }, 50, 50);
+            // ---
 
-            eq.Generate(doc);
-            eq.GetRhinoObjects().AddAll(doc, expression);
+            return Result.Success;
+        }
+    }
+
+    public class EquationSurfaceCommand : Command
+    {
+        public EquationSurfaceCommand()
+        {
+            // Rhino only creates one instance of each command class defined in a
+            // plug-in, so it is safe to store a refence in a static property.
+            Instance = this;
+        }
+
+        ///<summary>The only instance of this command.</summary>
+        public static EquationSurfaceCommand Instance
+        {
+            get; private set;
+        }
+
+        ///<returns>The command name as it appears on the Rhino command line.</returns>
+        public override string EnglishName
+        {
+            get { return "EquationSurface"; }
+        }
+
+        protected override Result RunCommand(RhinoDoc doc, RunMode mode)
+        {
+            // TODO: start here modifying the behaviour of your command.
+            // ---
+            RhinoApp.WriteLine("{0} will plot a graph.\n", EnglishName);
+
+            //new Eto.Forms.Application().Run(new MyForm());
+
+            string expression = "";
+            Result rc = RhinoGet.GetString("Equation", true, ref expression);
+
+            StandardEquation eq = new StandardEquation(expression, new List<Bounds> { new Bounds(-10, 10), new Bounds(-10, 10) }, 50, 50);
+            
+            if (eq.Successful())
+            {
+                eq.Generate();
+                eq.GetRhinoObjects().AddAll(doc, expression);
+            }
 
             // ---
 
@@ -94,7 +135,9 @@ namespace PlotEquation
             string x = "x=(2+sin(2*pi*v)*sin(2*pi*u))*sin(3*pi*v)";
             string y = "y=sin(2*pi*v)*cos(2*pi*u)+4*v-2";
             string z = "z=(2+sin(2*pi*v)*sin(2*pi*u))*cos(3*pi*v)";
-            rc = RhinoGet.GetString("Equation", true, ref x);
+            rc = RhinoGet.GetString("X: ", true, ref x);
+            rc = RhinoGet.GetString("Y: ", true, ref y);
+            rc = RhinoGet.GetString("Z: ", true, ref z);
 
             StandardEquation eq;
 
@@ -103,7 +146,7 @@ namespace PlotEquation
             else
                 eq = new StandardEquation(x, new List<Bounds> { new Bounds(-10, 10), new Bounds(-10, 10) }, 50, 50);
 
-            eq.Generate(doc);
+            eq.Generate();
             eq.GetRhinoObjects().AddAll(doc, x);
 
             // ---

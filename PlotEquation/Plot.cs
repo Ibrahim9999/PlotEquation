@@ -4,11 +4,7 @@ using Rhino;
 using Rhino.Geometry;
 using System.Linq;
 //@ Add names to points in rhino
-//@ theta returns phi=theta
-//@ r returns phi = r
-//@ weird surfaces r=cos(phi)^2
-//@ add curved quad option
-//@ add just number option
+//@ weird surfaces r=cos(phi)^2: add curved quad option
 namespace PlotEquation
 {
     /// <summary>
@@ -777,18 +773,17 @@ namespace PlotEquation
                 {
                     child.Name = "Points";
                     index = doc.Layers.Add(child);
-                    doc.Layers.FindIndex(index).IsVisible = false;
 
                     foreach (Point3d point in points)
                         doc.Objects.AddPoint(point, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
 
                     doc.Views.Redraw();
+                    doc.Layers.FindIndex(index).IsVisible = false;
                 }
                 if (grid.Count != 0)
                 {
                     child.Name = "Grid";
                     index = doc.Layers.Add(child);
-                    doc.Layers.FindIndex(index).IsVisible = false;
 
                     foreach (List<Point3d> list in grid)
                     {
@@ -801,34 +796,34 @@ namespace PlotEquation
                     }
 
                     doc.Views.Redraw();
+                    doc.Layers.FindIndex(index).IsVisible = false;
                 }
                 if (polylines.Count != 0)
                 {
                     child.Name = "Polylines";
                     index = doc.Layers.Add(child);
-                    doc.Layers.FindIndex(index).IsVisible = false;
 
                     foreach (Polyline polyline in polylines)
                         doc.Objects.AddPolyline(polyline, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
 
                     doc.Views.Redraw();
+                    doc.Layers.FindIndex(index).IsVisible = false;
                 }
                 if (curves.Count != 0)
                 {
                     child.Name = "Curves";
                     index = doc.Layers.Add(child);
-                    doc.Layers.FindIndex(index).IsVisible = (surfaces.Count == 0);
 
                     foreach (Curve curve in curves)
                         doc.Objects.AddCurve(curve, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
 
                     doc.Views.Redraw();
+                    doc.Layers.FindIndex(index).IsVisible = (surfaces.Count == 0);
                 }
                 if (lineframe.Count != 0)
                 {
                     child.Name = "Lineframe";
                     index = doc.Layers.Add(child);
-                    doc.Layers.FindIndex(index).IsVisible = false;
 
                     foreach (List<Polyline> list in lineframe)
                     {
@@ -841,12 +836,12 @@ namespace PlotEquation
                     }
 
                     doc.Views.Redraw();
+                    doc.Layers.FindIndex(index).IsVisible = false;
                 }
                 if (wireframe.Count != 0)
                 {
                     child.Name = "Wireframe";
                     index = doc.Layers.Add(child);
-                    doc.Layers.FindIndex(index).IsVisible = false;
 
                     foreach (List<Curve> list in wireframe)
                     {
@@ -857,39 +852,42 @@ namespace PlotEquation
 
                         doc.Groups.Add(guids);
                     }
+
+                    doc.Views.Redraw();
+                    doc.Layers.FindIndex(index).IsVisible = false;
                 }
                 if (triangles.Count != 0)
                 {
                     child.Name = "Triangles";
                     index = doc.Layers.Add(child);
-                    doc.Layers.FindIndex(index).IsVisible = false;
 
                     foreach (Brep brep in triangles)
                         doc.Objects.AddBrep(brep, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
 
                     doc.Views.Redraw();
+                    doc.Layers.FindIndex(index).IsVisible = false;
                 }
                 if (quads.Count != 0)
                 {
                     child.Name = "Quads";
                     index = doc.Layers.Add(child);
-                    doc.Layers.FindIndex(index).IsVisible = false;
 
                     foreach (Brep brep in quads)
                         doc.Objects.AddBrep(brep, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
 
                     doc.Views.Redraw();
+                    doc.Layers.FindIndex(index).IsVisible = false;
                 }
                 if (surfaces.Count != 0)
                 {
                     child.Name = "Surfaces";
                     index = doc.Layers.Add(child);
-                    doc.Layers.FindIndex(index).IsVisible = (quads.Count != 0);
 
                     foreach (Surface surface in surfaces)
                         doc.Objects.AddSurface(surface, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
 
                     doc.Views.Redraw();
+                    doc.Layers.FindIndex(index).IsVisible = (quads.Count != 0);
                 }
             }
 
@@ -1206,6 +1204,6 @@ namespace PlotEquation
         /// <summary>
         /// Creates objects.
         /// </summary>
-        public abstract void Generate(RhinoDoc doc);
+        public abstract void Generate();
     }
 }
