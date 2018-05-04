@@ -4,10 +4,8 @@ using Rhino;
 using Rhino.Geometry;
 using System.Linq;
 //@ Add names to points in rhino
-//@ Fix 3D Cylindrical variable parsing
 //@ theta returns phi=theta
 //@ phi returns theta = phi
-//@ error with r=theta
 //@ weird surfaces r=cos(phi)^2
 //@ add curved quad option
 //@ add just number option

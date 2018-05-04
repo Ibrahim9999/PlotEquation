@@ -634,17 +634,20 @@ namespace PlotEquation
             List<string> vars = new List<string>();
 
             // Determines what kind of equation the expression is
-            if (ValidVariables(cartesianVars))
+            /*
+             * theta + phi (2D)
+             */
+            if (ValidVariables(cartesianVars) && TestEquals(cartesianVars))
             {
                 equationType = Type.CARTESIAN;
                 vars = cartesianVars;
             }
-            else if (ValidVariables(sphericalVars))
+            else if (ValidVariables(sphericalVars) && TestEquals(sphericalVars))
             {
                 equationType = Type.SPHERICAL;
                 vars = sphericalVars;
             }
-            else if (ValidVariables(cylindricalVars))
+            else if (ValidVariables(cylindricalVars) && TestEquals(cylindricalVars))
             {
                 equationType = Type.CYLINDRICAL;
                 vars = cylindricalVars;
@@ -678,12 +681,12 @@ namespace PlotEquation
                 case 2:
                     vars.RemoveAt(vars.Count - 1);
 
-                    if (((exists[0] || ContainsRightVariables(new List<string>() { vars[0] })) && (expression.StartsWith(vars[1] + "=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[0] + ")=", StringComparison.Ordinal) || expression.StartsWith(vars[1] + "(" + vars[0] + ")=", StringComparison.Ordinal) || !equalsExists)) && ContainsRightVariables(new List<string>() { vars[0] }))
+                    if ((exists[0] || ContainsRightVariables(new List<string>() { vars[0] })) && ValidEquals(vars, VariablesUsed.ONE) && !ContainsWrongVariables(new List<string>() { vars[0] }))
                     {
                         variablesUsed = VariablesUsed.ONE;
                         simplifiedEq += vars[0];
                     }
-                    else if (((exists[1] || ContainsRightVariables(new List<string>() { vars[1] })) && (expression.StartsWith(vars[0] + "=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[1] + ")=", StringComparison.Ordinal) || expression.StartsWith(vars[1] + "(" + vars[1] + ")=", StringComparison.Ordinal) || !equalsExists)) && ContainsRightVariables(new List<string>() { vars[1] }))
+                    else if ((exists[1] || ContainsRightVariables(new List<string>() { vars[1] })) && ValidEquals(vars, VariablesUsed.TWO) && !ContainsWrongVariables(new List<string>() { vars[1] }))
                     {
                         variablesUsed = VariablesUsed.TWO;
                         simplifiedEq += vars[1];
@@ -696,22 +699,27 @@ namespace PlotEquation
                     {
                         variablesUsed = VariablesUsed.ONE_TWO;
                         simplifiedEq += vars[0] + "*" + vars[1] + "*" + vars[3];
-                    }*/
-                    if (((exists[0] || exists[1] || !ContainsWrongVariables(new List<string>() { vars[0], vars[1] })) && (expression.StartsWith(vars[2] + "=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[0] + "," + vars[1] + ")=", StringComparison.Ordinal) || !equalsExists)) && !ContainsWrongVariables
-                        (new List<string>() { vars[0], vars[1] }))
+                    }
+                    RhinoApp.WriteLine("\ntheta exists: " + exists[0]);
+                    RhinoApp.WriteLine("phi exists: " + exists[2]);
+                    RhinoApp.WriteLine("anything other than theta and phi: " + ContainsWrongVariables(new List<string>() { vars[2], vars[0] }, true));
+                    RhinoApp.WriteLine("valid equals (one_two): " + ValidEquals(vars, VariablesUsed.ONE_TWO));
+                    RhinoApp.WriteLine("valid equals (one_three): " + ValidEquals(vars, VariablesUsed.ONE_THREE));
+                    */
+                    if ((exists[0] || exists[1] || !ContainsWrongVariables(new List<string>() { vars[0], vars[1] })) && ValidEquals(vars, VariablesUsed.ONE_TWO) && !ContainsWrongVariables(new List<string>() { vars[0], vars[1] }))
                     {
                         variablesUsed = VariablesUsed.ONE_TWO;
                         simplifiedEq += vars[0] + "*" + vars[1];
                     }
-                    else if (((exists[1] || exists[2] || !ContainsWrongVariables(new List<string>() { vars[1], vars[2] })) && (expression.StartsWith(vars[0] + "=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[1] + "," + vars[2] + ")=", StringComparison.Ordinal) || !equalsExists)) && !ContainsWrongVariables(new List<string>() { vars[1], vars[2] }))
-                    {
-                        variablesUsed = VariablesUsed.TWO_THREE;
-                        simplifiedEq += vars[1] + "*" + vars[2];
-                    }
-                    else if (((exists[2] || exists[0] || !ContainsWrongVariables(new List<string>() { vars[2], vars[0] })) && (expression.StartsWith(vars[1] + "=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[2] + "," + vars[0] + ")=", StringComparison.Ordinal) || !equalsExists)) && !ContainsWrongVariables(new List<string>() { vars[2], vars[0] }))
+                    else if ((exists[2] || exists[0] || !ContainsWrongVariables(new List<string>() { vars[2], vars[0] })) && ValidEquals(vars, VariablesUsed.ONE_THREE) && !ContainsWrongVariables(new List<string>() { vars[2], vars[0] }))
                     {
                         variablesUsed = VariablesUsed.ONE_THREE;
                         simplifiedEq += vars[2] + "*" + vars[0];
+                    }
+                    else if ((exists[1] || exists[2] || !ContainsWrongVariables(new List<string>() { vars[1], vars[2] })) && ValidEquals(vars, VariablesUsed.TWO_THREE) && !ContainsWrongVariables(new List<string>() { vars[1], vars[2] }))
+                    {
+                        variablesUsed = VariablesUsed.TWO_THREE;
+                        simplifiedEq += vars[1] + "*" + vars[2];
                     }
 
                     break;
@@ -720,9 +728,19 @@ namespace PlotEquation
                     return false;
             }
 
+            RhinoApp.WriteLine("\nExpression:  " + expression);
+            RhinoApp.WriteLine("Equation Type:  " + equationType);
+            RhinoApp.WriteLine("Variables Used:  " + variablesUsed);
+            RhinoApp.Write("Decided vars: ");
+
+            for (int i = 0; i < dimension; i++)
+                RhinoApp.Write(vars[i] + ", ");
+
+            RhinoApp.WriteLine();
+
             if (variablesUsed == VariablesUsed.NONE)
             {
-                RhinoApp.WriteLine("Invalid variables. Make sure variables correspond to either cartesian, spherical, or cylindrical coordinates.");
+                RhinoApp.WriteLine("\nInvalid variables. Make sure variables correspond to either cartesian, spherical, or cylindrical coordinates.");
                 return false;
             }
 
@@ -755,15 +773,46 @@ namespace PlotEquation
                     break;
             }
 
-            RhinoApp.WriteLine("\nEquation Type:  " + equationType);
-            RhinoApp.WriteLine("Variables Used:  " + variablesUsed);
-            RhinoApp.WriteLine("Expression:  " + expression);
-
-            RhinoApp.Write("Vars: ");
-            for (int i = 0; i < this.vars.Count; i++)
-                RhinoApp.Write(this.vars[i] + ", ");
-
             return ValidExpression(new Expression(expression));
+        }
+
+        /// <summary>
+        /// Tests if the equals part of the expression with all of the
+        /// VariabledUsed components to see if it is valid.
+        /// </summary>
+        /// <param name="vars"></param>
+        /// <returns></returns>
+        private bool TestEquals(List<string> vars)
+        {
+            return ValidEquals(vars, VariablesUsed.ONE) || ValidEquals(vars, VariablesUsed.TWO) || ValidEquals(vars, VariablesUsed.ONE_TWO) || ValidEquals(vars, VariablesUsed.ONE_THREE) || ValidEquals(vars, VariablesUsed.TWO_THREE);
+        }
+
+        /// <summary>
+        /// Checks to see if the equals part of the expression is valid.
+        /// </summary>
+        /// <param name="vars"></param>
+        /// <param name="variablesUsed"></param>
+        /// <returns></returns>
+        private bool ValidEquals(List<string> vars, VariablesUsed variablesUsed)
+        {
+            if (!expression.Contains('='))
+                return true;
+            
+            switch (variablesUsed)
+            {
+                case VariablesUsed.ONE:
+                    return expression.StartsWith(vars[1] + "=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[0] + ")=", StringComparison.Ordinal) || expression.StartsWith(vars[1] + "(" + vars[0] + ")=", StringComparison.Ordinal);
+                case VariablesUsed.TWO:
+                    return expression.StartsWith(vars[0] + "=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[1] + ")=", StringComparison.Ordinal) || expression.StartsWith(vars[0] + "(" + vars[1] + ")=", StringComparison.Ordinal);
+                case VariablesUsed.ONE_TWO:
+                    return expression.StartsWith(vars[2] + "=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[0] + ',' + vars[1] + ")=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[1] + ',' + vars[0] + ")=", StringComparison.Ordinal) || expression.StartsWith(vars[2] + "(" + vars[0] + ',' + vars[1] + ")=", StringComparison.Ordinal) || expression.StartsWith(vars[2] + "(" + vars[1] + ',' + vars[0] + ")=", StringComparison.Ordinal);
+                case VariablesUsed.ONE_THREE:
+                    return expression.StartsWith(vars[1] + "=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[0] + ',' + vars[2] + ")=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[2] + ',' + vars[0] + ")=", StringComparison.Ordinal) || expression.StartsWith(vars[1] + "(" + vars[0] + ',' + vars[2] + ")=", StringComparison.Ordinal) || expression.StartsWith(vars[1] + "(" + vars[2] + ',' + vars[0] + ")=", StringComparison.Ordinal);
+                case VariablesUsed.TWO_THREE:
+                    return expression.StartsWith(vars[0] + "=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[1] + ',' + vars[2] + ")=", StringComparison.Ordinal) || expression.StartsWith("f(" + vars[2] + ',' + vars[1] + ")=", StringComparison.Ordinal) || expression.StartsWith(vars[0] + "(" + vars[1] + ',' + vars[2] + ")=", StringComparison.Ordinal) || expression.StartsWith(vars[0] + "(" + vars[2] + ',' + vars[1] + ")=", StringComparison.Ordinal);
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -773,10 +822,7 @@ namespace PlotEquation
         /// <returns></returns>
         private bool ValidVariables(List<string> vars)
         {
-            RhinoApp.WriteLine("\nIs Right: " + ContainsRightVariables(vars));
-            RhinoApp.WriteLine("Is Wrong: " + ContainsWrongVariables(vars));
-
-            return /**/ContainsRightVariables(vars) && !ContainsWrongVariables(vars);
+            return ContainsRightVariables(vars) && !ContainsWrongVariables(vars);
         }
 
         /// <summary>
@@ -786,18 +832,13 @@ namespace PlotEquation
         /// <returns></returns>
         private bool ContainsRightVariables(List<string> vars)
         {
-            /*
-            foreach (string s in vars)
-                if (expression.StartsWith(s + "=") || expression.StartsWith("f(" + s + ")="))
-                    return true;
-            */
-            string eq = expression;
+            string eq = expression.Substring(expression.IndexOf('=') + 1);
 
             if (eq.Length == 0)
                 return false;
 
             RemoveMathFunctions(ref eq);
-            RhinoApp.WriteLine("\tAfter removed math: " + eq);
+            
             foreach (string v in vars)
                 if (eq.Contains(v))
                     return true;
@@ -812,17 +853,17 @@ namespace PlotEquation
         /// <returns></returns>
         private bool ContainsWrongVariables(List<string> vars)
         {
-            string eq = expression;
+            string eq = expression.Substring(expression.IndexOf('=') + 1);
 
             if (eq.Length == 0)
                 return true;
 
             RemoveMathFunctions(ref eq);
-            RhinoApp.WriteLine("\tAfter removed math: " + eq);
+
             foreach (string v in vars)
                 if (eq.Contains(v))
                     eq = eq.Replace(v, "");
-
+            
             foreach (char c in eq.ToCharArray())
                 if (c >= 'a' && c <= 'z')
                     return true;
