@@ -675,7 +675,8 @@ namespace PlotEquation
                 exists.Add(expression.Contains(vars[i]));
 
             // Uses different methods for testing expression depending on
-            // dimension. Figuring out which variables are used.
+            // dimension and equation type. Figuring out which variables are
+            // used.
             switch (dimension)
             {
                 case 2:
@@ -706,7 +707,17 @@ namespace PlotEquation
                     RhinoApp.WriteLine("valid equals (one_two): " + ValidEquals(vars, VariablesUsed.ONE_TWO));
                     RhinoApp.WriteLine("valid equals (one_three): " + ValidEquals(vars, VariablesUsed.ONE_THREE));
                     */
-                    if ((exists[0] || exists[1] || !ContainsWrongVariables(new List<string>() { vars[0], vars[1] })) && ValidEquals(vars, VariablesUsed.ONE_TWO) && !ContainsWrongVariables(new List<string>() { vars[0], vars[1] }))
+                    if (equationType == Equation.Type.SPHERICAL && (exists[0] || ContainsRightVariables(new List<string>() { vars[0] })) && ValidEquals(vars, VariablesUsed.ONE_THREE) && !ContainsWrongVariables(new List<string>() { vars[0] }))
+                    {
+                        variablesUsed = VariablesUsed.ONE_THREE;
+                        simplifiedEq += vars[0] + "*" + vars[2];
+                    }
+                    else if (equationType == Equation.Type.SPHERICAL && (exists[1] || ContainsRightVariables(new List<string>() { vars[1] })) && ValidEquals(vars, VariablesUsed.TWO_THREE) && !ContainsWrongVariables(new List<string>() { vars[1] }))
+                    {
+                        variablesUsed = VariablesUsed.TWO_THREE;
+                        simplifiedEq += vars[1] + "*" + vars[2];
+                    }
+                    else if ((exists[0] || exists[1] || !ContainsWrongVariables(new List<string>() { vars[0], vars[1] })) && ValidEquals(vars, VariablesUsed.ONE_TWO) && !ContainsWrongVariables(new List<string>() { vars[0], vars[1] }))
                     {
                         variablesUsed = VariablesUsed.ONE_TWO;
                         simplifiedEq += vars[0] + "*" + vars[1];

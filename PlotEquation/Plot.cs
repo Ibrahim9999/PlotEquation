@@ -5,7 +5,7 @@ using Rhino.Geometry;
 using System.Linq;
 //@ Add names to points in rhino
 //@ theta returns phi=theta
-//@ phi returns theta = phi
+//@ r returns phi = r
 //@ weird surfaces r=cos(phi)^2
 //@ add curved quad option
 //@ add just number option
