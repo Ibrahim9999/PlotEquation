@@ -5,7 +5,6 @@ using Rhino.Geometry;
 using System.Linq;
 //@ Add names to points in rhino
 //@ weird surfaces r=cos(phi)^2: add curved quad option
-//@ errors with output of 1/x
 //@ weird triangles with 1/(xy)
 namespace PlotEquation
 {
