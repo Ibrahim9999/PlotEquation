@@ -5,6 +5,8 @@ using Rhino.Geometry;
 using System.Linq;
 //@ Add names to points in rhino
 //@ weird surfaces r=cos(phi)^2: add curved quad option
+//@ errors with output of 1/x
+//@ weird triangles with 1/(xy)
 namespace PlotEquation
 {
     /// <summary>
@@ -734,6 +736,9 @@ namespace PlotEquation
             public List<Brep> triangles;
             public List<Brep> quads;
             public List<Surface> surfaces;
+            public List<Surface> networkSurfaces;
+            public List<Brep> surfaceDivisions;
+
 
             /// <summary>
             /// Initializes all the lists.
@@ -749,6 +754,8 @@ namespace PlotEquation
                 triangles = new List<Brep>();
                 quads = new List<Brep>();
                 surfaces = new List<Surface>();
+                networkSurfaces = new List<Surface>();
+                surfaceDivisions = new List<Brep>();
             }
 
             /// <summary>
@@ -763,9 +770,11 @@ namespace PlotEquation
 
                 int index = doc.Layers.Add(title, System.Drawing.Color.Black);
                 Rhino.DocObjects.Layer parent = doc.Layers[index];
-                
-                Rhino.DocObjects.Layer child = new Rhino.DocObjects.Layer();
-                child.ParentLayerId = parent.Id;
+
+                Rhino.DocObjects.Layer child = new Rhino.DocObjects.Layer
+                {
+                    ParentLayerId = parent.Id
+                };
 
                 RhinoApp.WriteLine("Adding objects to Rhino...");
 
@@ -818,7 +827,7 @@ namespace PlotEquation
                         doc.Objects.AddCurve(curve, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
 
                     doc.Views.Redraw();
-                    doc.Layers.FindIndex(index).IsVisible = (surfaces.Count == 0);
+                    doc.Layers.FindIndex(index).IsVisible = (surfaceDivisions.Count == 0);
                 }
                 if (lineframe.Count != 0)
                 {
@@ -878,16 +887,50 @@ namespace PlotEquation
                     doc.Views.Redraw();
                     doc.Layers.FindIndex(index).IsVisible = false;
                 }
-                if (surfaces.Count != 0)
+                if (surfaces.Count != 0 || networkSurfaces.Count != 0 || surfaceDivisions.Count != 0)
                 {
-                    child.Name = "Surfaces";
-                    index = doc.Layers.Add(child);
+                    index = doc.Layers.Add("Surface Attempts", System.Drawing.Color.Black);
+                    child = doc.Layers[index];
+                    child.ParentLayerId = parent.Id;
 
-                    foreach (Surface surface in surfaces)
-                        doc.Objects.AddSurface(surface, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
+                    var grandchild = new Rhino.DocObjects.Layer
+                    {
+                        ParentLayerId = child.Id
+                    };
+                    
+                    if (surfaces.Count != 0)
+                    {
+                        grandchild.Name = "Surfaces";
+                        index = doc.Layers.Add(grandchild);
 
-                    doc.Views.Redraw();
-                    doc.Layers.FindIndex(index).IsVisible = (quads.Count != 0);
+                        foreach (Surface surface in surfaces)
+                            doc.Objects.AddSurface(surface, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
+
+                        doc.Views.Redraw();
+                        doc.Layers.FindIndex(index).IsVisible = true;
+                    }
+                    if (networkSurfaces.Count != 0)
+                    {
+                        grandchild.Name = "Network Surfaces";
+                        index = doc.Layers.Add(grandchild);
+
+                        foreach (Surface surface in networkSurfaces)
+                            doc.Objects.AddSurface(surface, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
+
+                        doc.Views.Redraw();
+                        doc.Layers.FindIndex(index).IsVisible = (surfaces.Count == 0);
+                    }
+                    if (surfaceDivisions.Count != 0)
+                    {
+                        grandchild.Name = "Surface Divisions";
+                        index = doc.Layers.Add(grandchild);
+
+                        foreach (Brep brep in surfaceDivisions)
+                            doc.Objects.AddBrep(brep, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
+
+                        doc.Views.Redraw();
+                        doc.Layers.FindIndex(index).IsVisible = (surfaces.Count == 0 && networkSurfaces.Count == 0);
+                    }
                 }
             }
 

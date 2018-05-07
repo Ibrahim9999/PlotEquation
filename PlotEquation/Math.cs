@@ -1625,12 +1625,11 @@ namespace PlotEquation
 
             var grid = new List<List<Point3d>>();
 
-            Point3d end = brep.Faces[0].ToBrep().Edges[0].PointAtEnd;
             int u = 1;
             int v = 1;
 
             for (int i = 1; i < brep.Faces.Count; i++)
-                if (end == brep.Faces[i].ToBrep().Edges[0].PointAtStart)
+                if (brep.Faces[0].ToBrep().Edges[0].PointAtEnd == brep.Faces[i].ToBrep().Edges[0].PointAtStart)
                 {
                     u = i;
                     break;
@@ -1647,6 +1646,12 @@ namespace PlotEquation
                 for (int j = 0; j < v; j++)
                     grid[i].Add(brep.Faces[j * u + i].ToBrep().Edges[0].PointAtEnd);
             }
+
+            grid.Add(new List<Point3d>());
+            grid.Last().Add(brep.Faces[u - 1].ToBrep().Edges[2].PointAtEnd);
+
+            for (int j = 0; j < v; j++)
+                grid.Last().Add(brep.Faces[j * u + (u - 1)].ToBrep().Edges[2].PointAtStart);
 
             return grid;
         }
@@ -1709,15 +1714,16 @@ namespace PlotEquation
         public static List<List<Curve>> WireframeFromBrep(Brep brep, int degree = 3)
         {
             var grid = GridFromBrep(brep);
-            var wireframe = new List<List<Curve>>();
-
-            wireframe.Add(new List<Curve>());
-            wireframe.Add(new List<Curve>());
+            var wireframe = new List<List<Curve>>
+            {
+                new List<Curve>(),
+                new List<Curve>()
+            };
 
             for (int i = 0; i < grid.Count; i++)
             {
                 var curve = new List<Point3d>();
-
+                RhinoApp.WriteLine("grid[" + i + "]: " + grid[i].Count);
                 for (int j = 0; j < grid[i].Count; j++)
                     curve.Add(grid[i][j]);
 
@@ -1743,8 +1749,10 @@ namespace PlotEquation
         /// <param name="points"></param>
         /// <param name="uDegree"></param>
         /// <param name="vDegree"></param>
+        /// <param name="uClosed"></param>
+        /// <param name="vClosed"></param>
         /// <returns></returns>
-        public static Surface SurfaceFromPoints(List<List<Point3d>> points, int uDegree, int vDegree, bool uClosed, bool vClosed)
+        public static Surface SurfaceThroughPoints(List<List<Point3d>> points, int uDegree, int vDegree, bool uClosed, bool vClosed)
         {
             List<Point3d> p = new List<Point3d>();
 
@@ -1755,11 +1763,66 @@ namespace PlotEquation
             {
                 return NurbsSurface.CreateThroughPoints(p, points.Count, points[0].Count, uDegree, vDegree, uClosed, vClosed);
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                //RhinoApp.WriteLine(e.Message);
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Creates a Rhino Surface from a network of curves.
+        /// </summary>
+        /// <param name="wireframe"></param>
+        /// <param name="continuity"></param>
+        /// <returns></returns>
+        public static Surface NetworkSurface(List<List<Curve>> wireframe, int continuity)
+        {
+            int n = 0;
+
+            try
+            {
+                return NurbsSurface.CreateNetworkSurface(wireframe[0], continuity, continuity, wireframe[1], continuity, continuity, RhinoDoc.ActiveDoc.ModelAbsoluteTolerance, RhinoDoc.ActiveDoc.ModelAbsoluteTolerance, RhinoDoc.ActiveDoc.ModelAngleToleranceDegrees, out n);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Creates a divided Rhino Surface from a wireframe.
+        /// </summary>
+        /// <param name="wireframe"></param>
+        /// <param name="uDegree"></param>
+        /// <param name="vDegree"></param>
+        /// <returns></returns>
+        public static List<Brep> DividedSurface(List<List<Curve>> wireframe, int pointPerCurve, int uDegree, int vDegree)
+        {
+            List<Brep> finalSurfaces = new List<Brep>();
+
+            for (int i = 0; i < wireframe.Count - 1; i++)
+            {
+                for (int j = 0; j < wireframe[i].Count - 1; j++)
+                {
+                    double min = 0;
+                    double max = 0;
+                    wireframe[i][j].NormalizedLengthParameter(0, out min);
+                    wireframe[i][j].NormalizedLengthParameter(1, out max);
+
+                    var t = new List<double>();
+                    double iteration = (max - min) / pointPerCurve;
+
+                    for (double k = min; k <= max; k += iteration)
+                    {
+                        k = Math.Round(k, Calculate.DecimalCount(iteration));
+                        List<Curve> split = wireframe[i][j].Split(t).ToList();
+
+
+                    }
+                }
+            }
+
+            return finalSurfaces;
         }
     }
 }

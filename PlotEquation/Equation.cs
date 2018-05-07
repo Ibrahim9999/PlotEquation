@@ -288,6 +288,7 @@ namespace PlotEquation
         protected void CreateRhinoObjects(Objects.Wireframe wireframe)
         {
             RhinoApp.WriteLine("Creating objects...");
+            RhinoDoc doc = RhinoDoc.ActiveDoc;
 
             if (dimension == 2)
             {
@@ -367,40 +368,69 @@ namespace PlotEquation
 
                 // Lineframe creation
                 RhinoApp.Write("\tLineframe... ");
+                doc.Views.Redraw();
                 rhinoObjects.lineframe = RhinoObjects.LineframeToRhino(wireframe);
 
                 RhinoApp.WriteLine("Done");
 
                 // Wireframe creation
                 RhinoApp.Write("\tWireframe... ");
+                doc.Views.Redraw();
                 rhinoObjects.wireframe = RhinoObjects.WireframeToRhino(wireframe);
 
                 RhinoApp.WriteLine("Done");
 
                 // Triangle list creation
                 RhinoApp.Write("\tTriangles... ");
+                doc.Views.Redraw();
                 rhinoObjects.triangles = Brep.JoinBreps(RhinoObjects.TriangleMeshToRhino(Objects.TriangleMesh.MakeFromWireframe(wireframe)), .00000001).ToList();
 
                 RhinoApp.WriteLine("Done");
 
                 // Quad list creation
                 RhinoApp.Write("\tQuads... ");
+                doc.Views.Redraw();
                 rhinoObjects.quads = Brep.JoinBreps(RhinoObjects.QuadMeshToRhino(Objects.QuadMesh.MakeFromWireframe(wireframe)), .00000001).ToList();
 
                 RhinoApp.WriteLine("Done");
 
                 // Surface creation
+                //@ Fix wireframe lack when NaN appears somewhere
                 RhinoApp.Write("\tSurfaces... ");
+                doc.Views.Redraw();
                 rhinoObjects.surfaces = new List<Surface>
                 {
-                    Create.SurfaceFromPoints(rhinoObjects.grid, 3, 3, wrapPoints, wrapCurves)
+                    Create.SurfaceThroughPoints(rhinoObjects.grid, 3, 3, wrapPoints, wrapCurves)
                 };
-                //@ Fix wireframe lack when NaN appears somewhere
+
                 if (rhinoObjects.surfaces[0] == null)
                     foreach (Brep brep in rhinoObjects.quads)
-                        rhinoObjects.surfaces.Add(Create.SurfaceFromPoints(Create.GridFromBrep(brep), 3, 3, wrapPoints, wrapCurves));
+                        rhinoObjects.surfaces.Add(Create.SurfaceThroughPoints(Create.GridFromBrep(brep), 3, 3, wrapPoints, wrapCurves));
 
                 RhinoApp.WriteLine("Done");
+
+                // Network Surface creation
+                RhinoApp.Write("\tNetwork Surfaces... ");
+                doc.Views.Redraw();
+                rhinoObjects.networkSurfaces = new List<Surface>
+                {
+                    Create.NetworkSurface(rhinoObjects.wireframe, 1)
+                };
+
+                if (rhinoObjects.networkSurfaces[0] == null)
+                    foreach (Brep brep in rhinoObjects.quads)
+                        rhinoObjects.networkSurfaces.Add(Create.NetworkSurface(Create.WireframeFromBrep(brep), 1));
+
+                RhinoApp.WriteLine("Done");
+
+                // Surface Division creation
+                RhinoApp.Write("\tSurface Divisions... ");
+                doc.Views.Redraw();
+                rhinoObjects.surfaceDivisions = new List<Brep>();
+                rhinoObjects.surfaceDivisions.AddRange(Create.DividedSurface(rhinoObjects.wireframe, pointsPerCurve, 3, 3));
+                
+                RhinoApp.WriteLine("Done");
+                doc.Views.Redraw();
             }
         }
 

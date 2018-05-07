@@ -40,7 +40,7 @@ namespace PlotEquation
             string expression = "";
             Result rc = RhinoGet.GetString("Equation", true, ref expression);
 
-            StandardEquation eq = new StandardEquation(expression, new List<Bounds> { new Bounds(-10, 10) }, 1000);
+            StandardEquation eq = new StandardEquation(expression, new List<Bounds> { new Bounds(-10, 10) }, 100);
 
             if (eq.Successful())
             {
