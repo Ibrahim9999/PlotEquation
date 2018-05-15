@@ -677,17 +677,17 @@ namespace PlotEquation
             List<string> vars = new List<string>();
             
             // Determines what kind of equation the expression is
-            if ((ContainsRightVariables(cartesianVars) || !ContainsWrongVariables(cartesianVars)) && TestEquals(cartesianVars))
+            if ((ValidVariables(cartesianVars) || !ContainsWrongVariables(new List<string>())) && TestEquals(cartesianVars))
             {
                 equationType = Type.CARTESIAN;
                 vars = cartesianVars;
             }
-            else if ((ContainsRightVariables(sphericalVars) || !ContainsWrongVariables(sphericalVars)) && TestEquals(sphericalVars))
+            else if ((ValidVariables(sphericalVars) || !ContainsWrongVariables(new List<string>())) && TestEquals(sphericalVars))
             {
                 equationType = Type.SPHERICAL;
                 vars = sphericalVars;
             }
-            else if ((ContainsRightVariables(cylindricalVars) || !ContainsWrongVariables(cylindricalVars)) && TestEquals(cylindricalVars))
+            else if ((ValidVariables(cylindricalVars) || !ContainsWrongVariables(new List<string>())) && TestEquals(cylindricalVars))
             {
                 equationType = Type.CYLINDRICAL;
                 vars = cylindricalVars;
