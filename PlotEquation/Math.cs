@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Linq;
 using System.Collections.Generic;
-using NCalc;
 using Rhino.Geometry;
 using Rhino;
 
@@ -1605,13 +1604,24 @@ namespace PlotEquation
     /// </summary>,
     public static class Create
     {
+        public static List<List<Point3d>> GridFromLineframe(List<List<Polyline>> lineframe, bool uPriority = true)
+        {
+            var grid = new List<List<Point3d>>();
+
+            foreach (Polyline line in lineframe[0])
+                grid.Add(line.ToList());
+
+            return grid;
+        }
+
         /// <summary>
         /// Generates a 2D grid of points from a brep that represents a joined
         /// array of quads.
         /// </summary>
         /// <remarks>
         /// Currently works only if the number of columns is constant in each
-        /// row.
+        /// row, and only if the brep is grid-like and not stemming from one
+        /// points (like a triangle).
         /// </remarks>
         /// <param name="brep"></param>
         /// <returns></returns>
@@ -1624,10 +1634,13 @@ namespace PlotEquation
             }
 
             var grid = new List<List<Point3d>>();
-
+            //maybe test if point used for comparison exists in next brep face,
+            // or if point exists after a series of brep faces, then use a
+            // different one?
             int u = 1;
             int v = 1;
-
+            bool otherWay = false;
+            
             for (int i = 1; i < brep.Faces.Count; i++)
                 if (brep.Faces[0].ToBrep().Edges[0].PointAtEnd == brep.Faces[i].ToBrep().Edges[0].PointAtStart)
                 {
@@ -1636,23 +1649,60 @@ namespace PlotEquation
                 }
 
             v = brep.Faces.Count / u;
-
-            for (int i = 0; i < u; i++)
+            
+            if (u * v != brep.Faces.Count)
             {
-                grid.Add(new List<Point3d>());
+                u = 1;
+                v = 1;
 
-                grid[i].Add(brep.Faces[i].ToBrep().Edges[0].PointAtStart);
+                for (int i = 1; i < brep.Faces.Count; i++)
+                    if (brep.Faces[0].ToBrep().Edges[2].PointAtEnd == brep.Faces[i].ToBrep().Edges[2].PointAtEnd)
+                    {
+                        u = i;
+                        break;
+                    }
+
+                v = brep.Faces.Count / u;
+                otherWay = true;
+            }
+            
+            grid.Add(new List<Point3d>());
+
+            if (otherWay)
+            {
+                grid.Last().Add(brep.Faces[0].ToBrep().Edges[2].PointAtEnd);
 
                 for (int j = 0; j < v; j++)
-                    grid[i].Add(brep.Faces[j * u + i].ToBrep().Edges[0].PointAtEnd);
+                    grid.Last().Add(brep.Faces[j * u].ToBrep().Edges[2].PointAtEnd);
+
+                for (int i = 1; i < u; i++)
+                {
+                    grid.Add(new List<Point3d>());
+
+                    grid[i].Add(brep.Faces[i].ToBrep().Edges[0].PointAtEnd);
+
+                    for (int j = 0; j < v; j++)
+                        grid[i].Add(brep.Faces[j * u + i].ToBrep().Edges[0].PointAtStart);
+                }
             }
+            else
+            {
+                for (int i = 0; i < u; i++)
+                {
+                    grid.Add(new List<Point3d>());
 
-            grid.Add(new List<Point3d>());
-            grid.Last().Add(brep.Faces[u - 1].ToBrep().Edges[2].PointAtEnd);
+                    grid[i].Add(brep.Faces[i].ToBrep().Edges[0].PointAtStart);
 
-            for (int j = 0; j < v; j++)
-                grid.Last().Add(brep.Faces[j * u + (u - 1)].ToBrep().Edges[2].PointAtStart);
+                    for (int j = 0; j < v; j++)
+                        grid[i].Add(brep.Faces[j * u + i].ToBrep().Edges[0].PointAtEnd);
+                }
 
+                grid.Last().Add(brep.Faces[u - 1].ToBrep().Edges[2].PointAtEnd);
+
+                for (int j = 0; j < v; j++)
+                    grid.Last().Add(brep.Faces[j * u + (u - 1)].ToBrep().Edges[2].PointAtStart);
+            }
+            
             return grid;
         }
 
@@ -1670,11 +1720,12 @@ namespace PlotEquation
         public static List<List<Polyline>> LineframeFromBrep(Brep brep)
         {
             var grid = GridFromBrep(brep);
-            var lineframe = new List<List<Polyline>>();
-
-            lineframe.Add(new List<Polyline>());
-            lineframe.Add(new List<Polyline>());
-
+            var lineframe = new List<List<Polyline>>
+            {
+                new List<Polyline>(),
+                new List<Polyline>()
+            };
+            
             for (int i = 0; i < grid.Count; i++)
             {
                 var polyline = new Polyline();
@@ -1696,7 +1747,6 @@ namespace PlotEquation
             }
 
             return lineframe;
-
         }
 
         /// <summary>
@@ -1723,11 +1773,11 @@ namespace PlotEquation
             for (int i = 0; i < grid.Count; i++)
             {
                 var curve = new List<Point3d>();
-                RhinoApp.WriteLine("grid[" + i + "]: " + grid[i].Count);
+                
                 for (int j = 0; j < grid[i].Count; j++)
                     curve.Add(grid[i][j]);
 
-                wireframe[0].Add(Curve.CreateInterpolatedCurve(curve, 3));
+                wireframe[0].Add(Curve.CreateInterpolatedCurve(curve, degree));
             }
 
             for (int i = 0; i < grid[0].Count; i++)
@@ -1737,7 +1787,7 @@ namespace PlotEquation
                 for (int j = 0; j < grid.Count; j++)
                     curve.Add(grid[j][i]);
 
-                wireframe[0].Add(Curve.CreateInterpolatedCurve(curve, 3));
+                wireframe[1].Add(Curve.CreateInterpolatedCurve(curve, degree));
             }
 
             return wireframe;
@@ -1777,16 +1827,7 @@ namespace PlotEquation
         /// <returns></returns>
         public static Surface NetworkSurface(List<List<Curve>> wireframe, int continuity)
         {
-            int n = 0;
-
-            try
-            {
-                return NurbsSurface.CreateNetworkSurface(wireframe[0], continuity, continuity, wireframe[1], continuity, continuity, RhinoDoc.ActiveDoc.ModelAbsoluteTolerance, RhinoDoc.ActiveDoc.ModelAbsoluteTolerance, RhinoDoc.ActiveDoc.ModelAngleToleranceDegrees, out n);
-            }
-            catch (Exception)
-            {
-                return null;
-            }
+            return NurbsSurface.CreateNetworkSurface(wireframe[0], continuity, continuity, wireframe[1], continuity, continuity, RhinoDoc.ActiveDoc.ModelAbsoluteTolerance, RhinoDoc.ActiveDoc.ModelAbsoluteTolerance, RhinoDoc.ActiveDoc.ModelAngleToleranceDegrees, out int error) ?? NurbsSurface.CreateNetworkSurface(wireframe[1], continuity, continuity, wireframe[0], continuity, continuity, RhinoDoc.ActiveDoc.ModelAbsoluteTolerance, RhinoDoc.ActiveDoc.ModelAbsoluteTolerance, RhinoDoc.ActiveDoc.ModelAngleToleranceDegrees, out error);
         }
 
         /// <summary>
@@ -1796,33 +1837,64 @@ namespace PlotEquation
         /// <param name="uDegree"></param>
         /// <param name="vDegree"></param>
         /// <returns></returns>
-        public static List<Brep> DividedSurface(List<List<Curve>> wireframe, int pointPerCurve, int uDegree, int vDegree)
+        public static List<Brep> DividedSurface(List<List<Curve>> wireframe, int pointsPerCurve, int uDegree, int vDegree)
         {
-            List<Brep> finalSurfaces = new List<Brep>();
+            List<Brep> surfaces = new List<Brep>();
+            List<List<List<Curve>>> splitCurves = new List<List<List<Curve>>>();
+            List<double> normalizedParameters = new List<double>();
+            double iteration = 1.0 / (wireframe[0].Count - 1);
 
-            for (int i = 0; i < wireframe.Count - 1; i++)
+            for (double i = iteration; i < 1; i += iteration)
+                normalizedParameters.Add(Math.Round(i, Calculate.DecimalCount(iteration)));
+            
+            for (int i = 0; i < wireframe.Count; i++)
             {
-                for (int j = 0; j < wireframe[i].Count - 1; j++)
+                splitCurves.Add(new List<List<Curve>>());
+
+                for (int j = 0; j < wireframe[i].Count; j++)
                 {
-                    double min = 0;
-                    double max = 0;
-                    wireframe[i][j].NormalizedLengthParameter(0, out min);
-                    wireframe[i][j].NormalizedLengthParameter(1, out max);
-
-                    var t = new List<double>();
-                    double iteration = (max - min) / pointPerCurve;
-
-                    for (double k = min; k <= max; k += iteration)
+                    if (iteration == 1)
+                        splitCurves.Last().Add(new List<Curve> { wireframe[i][j] });
+                    else
                     {
-                        k = Math.Round(k, Calculate.DecimalCount(iteration));
-                        List<Curve> split = wireframe[i][j].Split(t).ToList();
+                        var t = new List<double>();
+                        wireframe[i][j].NormalizedLengthParameter(1, out double max);
 
+                        foreach (double d in normalizedParameters)
+                            t.Add(d * max);
 
+                        splitCurves.Last().Add(new List<Curve> { wireframe[i][j].Split(iteration * max)[0] });
+                        splitCurves.Last().Last().AddRange(wireframe[i][j].Split(t));
                     }
                 }
             }
 
-            return finalSurfaces;
+            if (splitCurves[0].Count == splitCurves[1].Count)
+                for (int i = 1; i < splitCurves[0].Count; i++)
+                {
+                    for (int j = 1; j < splitCurves[0][i].Count; j++)
+                    {
+                        Curve n = splitCurves[0][i - 1][j];
+                        Curve s = splitCurves[0][i][j];
+                        Curve e = splitCurves[1][j][i];
+                        Curve w = splitCurves[1][j - 1][i];
+
+                        surfaces.Add(Brep.CreateEdgeSurface(new List<Curve> { n, e, s, w }));
+                    }
+                }
+            else
+                for (int i = 1; i < splitCurves[0].Count; i++)
+                {
+                    for (int j = 1; j < splitCurves[0][i].Count; j++)
+                    {
+                        Curve n = splitCurves[0][i - 1][j];
+                        Curve s = splitCurves[0][i][j];
+                        
+                        surfaces.Add(Brep.CreateEdgeSurface(new List<Curve> { n, s }));
+                    }
+                }
+
+            return surfaces;
         }
     }
 }

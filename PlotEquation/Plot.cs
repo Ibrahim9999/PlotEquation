@@ -4,9 +4,7 @@ using Rhino;
 using Rhino.Geometry;
 using System.Linq;
 //@ Add names to points in rhino
-//@ weird surfaces r=cos(phi)^2: add curved quad option
-//@ weird triangles with 1/(xy)
-//@ error with r = theta z
+//@ weird surfaces r=cos(phi)^2; weird overall output when 100,100
 namespace PlotEquation
 {
     /// <summary>
@@ -103,6 +101,21 @@ namespace PlotEquation
                 public double Magnitude()
                 {
                     return Math.Sqrt(X * X + Y * Y + Z * Z);
+                }
+
+                public bool IsNaN()
+                {
+                    return Double.IsNaN(X) || Double.IsNaN(Y) || Double.IsNaN(Z);
+                }
+
+                public bool IsInfinity()
+                {
+                    return Double.IsInfinity(X) || Double.IsInfinity(Y) || Double.IsInfinity(Z);
+                }
+
+                public bool IsNumber()
+                {
+                    return !IsInfinity() && !IsNaN();
                 }
             }
             
@@ -641,7 +654,7 @@ namespace PlotEquation
                             mesh.triangles.Add(new Triangle(polylines[i - 1][e - 1], polylines[i][e - 1], polylines[i][e]));
                             mesh.triangles.Add(new Triangle(polylines[i - 1][e - 1], polylines[i][e], polylines[i - 1][e]));
                         }
-
+                    
                     return mesh;
                 }
 
@@ -731,8 +744,8 @@ namespace PlotEquation
             public List<List<Point3d>> grid;
             public List<Polyline> polylines;
             public List<Curve> curves;
-            public List<List<Polyline>> lineframe;
-            public List<List<Curve>> wireframe;
+            public List<List<List<Polyline>>> lineframes;
+            public List<List<List<Curve>>> wireframes;
             public List<Brep> triangles;
             public List<Brep> quads;
             public List<Surface> surfaces;
@@ -749,8 +762,8 @@ namespace PlotEquation
                 grid = new List<List<Point3d>>();
                 polylines = new List<Polyline>();
                 curves = new List<Curve>();
-                lineframe = new List<List<Polyline>>();
-                wireframe = new List<List<Curve>>();
+                lineframes = new List<List<List<Polyline>>>();
+                wireframes = new List<List<List<Curve>>>();
                 triangles = new List<Brep>();
                 quads = new List<Brep>();
                 surfaces = new List<Surface>();
@@ -829,37 +842,53 @@ namespace PlotEquation
                     doc.Views.Redraw();
                     doc.Layers.FindIndex(index).IsVisible = (surfaceDivisions.Count == 0);
                 }
-                if (lineframe.Count != 0)
+                if (lineframes.Count != 0)
                 {
                     child.Name = "Lineframe";
                     index = doc.Layers.Add(child);
 
-                    foreach (List<Polyline> list in lineframe)
+                    foreach (List<List<Polyline>> lineframe in lineframes)
                     {
-                        List<Guid> guids = new List<Guid>();
-                        
-                        foreach (Polyline polyline in list)
-                            guids.Add(doc.Objects.AddPolyline(polyline, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index }));
+                        var group = new List<Guid>();
 
-                        doc.Groups.Add(guids);
+                        foreach (List<Polyline> list in lineframe)
+                        {
+                            var guids = new List<Guid>();
+
+                            foreach (Polyline polyline in list)
+                                guids.Add(doc.Objects.AddPolyline(polyline, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index }));
+
+                            doc.Groups.Add(guids);
+                            group.AddRange(guids);
+                        }
+
+                        doc.Groups.Add(group);
                     }
 
                     doc.Views.Redraw();
                     doc.Layers.FindIndex(index).IsVisible = false;
                 }
-                if (wireframe.Count != 0)
+                if (wireframes.Count != 0)
                 {
                     child.Name = "Wireframe";
                     index = doc.Layers.Add(child);
 
-                    foreach (List<Curve> list in wireframe)
+                    foreach (List<List<Curve>> wireframe in wireframes)
                     {
-                        List<Guid> guids = new List<Guid>();
+                        var group = new List<Guid>();
 
-                        foreach (Curve curve in list)
-                            doc.Objects.AddCurve(curve, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index });
+                        foreach (List<Curve> list in wireframe)
+                        {
+                            var guids = new List<Guid>();
 
-                        doc.Groups.Add(guids);
+                            foreach (Curve curve in list)
+                                guids.Add(doc.Objects.AddCurve(curve, new Rhino.DocObjects.ObjectAttributes { LayerIndex = index }));
+
+                            doc.Groups.Add(guids);
+                            group.AddRange(guids);
+                        }
+
+                        doc.Groups.Add(group);
                     }
 
                     doc.Views.Redraw();
@@ -1026,9 +1055,7 @@ namespace PlotEquation
                 List<List<Polyline>> w = new List<List<Polyline>>();
                 List<Polyline> u = new List<Polyline>();
                 List<Polyline> v = new List<Polyline>();
-
                 
-
                 foreach (Objects.Polyline polyline in wireframe.uCurves)
                     u.Add(PolylineToRhino(polyline));
                 foreach (Objects.Polyline polyline in wireframe.vCurves)

@@ -122,6 +122,16 @@ namespace PlotEquation
         protected int curvesPerSurface;
 
         /// <summary>
+        /// Represents the degree of the u curves in a surface.
+        /// </summary>
+        protected int uDegree;
+
+        /// <summary>
+        /// Represents the degree of the v curves in a surface.
+        /// </summary>
+        protected int vDegree;
+
+        /// <summary>
         /// Represents the equation type.
         /// </summary>
         protected Type equationType;
@@ -343,7 +353,7 @@ namespace PlotEquation
                             pl.Add(point);
 
                     if (pl.Count > 1)
-                        rhinoObjects.curves.Add(RhinoObjects.CurveToRhino(pl));
+                        rhinoObjects.curves.Add(RhinoObjects.CurveToRhino(pl, uDegree));
                 }
 
                 RhinoApp.WriteLine("Done");
@@ -366,60 +376,53 @@ namespace PlotEquation
 
                 RhinoApp.WriteLine("Done");
 
-                // Lineframe creation
-                RhinoApp.Write("\tLineframe... ");
-                doc.Views.Redraw();
-                rhinoObjects.lineframe = RhinoObjects.LineframeToRhino(wireframe);
-
-                RhinoApp.WriteLine("Done");
-
-                // Wireframe creation
-                RhinoApp.Write("\tWireframe... ");
-                doc.Views.Redraw();
-                rhinoObjects.wireframe = RhinoObjects.WireframeToRhino(wireframe);
-
-                RhinoApp.WriteLine("Done");
-
                 // Triangle list creation
                 RhinoApp.Write("\tTriangles... ");
                 doc.Views.Redraw();
-                rhinoObjects.triangles = Brep.JoinBreps(RhinoObjects.TriangleMeshToRhino(Objects.TriangleMesh.MakeFromWireframe(wireframe)), .00000001).ToList();
+                rhinoObjects.triangles = Brep.JoinBreps(RhinoObjects.TriangleMeshToRhino(Objects.TriangleMesh.MakeFromWireframe(wireframe)), RhinoDoc.ActiveDoc.ModelAbsoluteTolerance).ToList();
 
                 RhinoApp.WriteLine("Done");
 
                 // Quad list creation
                 RhinoApp.Write("\tQuads... ");
                 doc.Views.Redraw();
-                rhinoObjects.quads = Brep.JoinBreps(RhinoObjects.QuadMeshToRhino(Objects.QuadMesh.MakeFromWireframe(wireframe)), .00000001).ToList();
+                rhinoObjects.quads = Brep.JoinBreps(RhinoObjects.QuadMeshToRhino(Objects.QuadMesh.MakeFromWireframe(wireframe)), RhinoDoc.ActiveDoc.ModelAbsoluteTolerance).ToList();
 
                 RhinoApp.WriteLine("Done");
 
+                // Lineframe creation
+                RhinoApp.Write("\tLineframes... ");
+                doc.Views.Redraw();
+                foreach (Brep brep in rhinoObjects.quads)
+                    rhinoObjects.lineframes.Add(Create.LineframeFromBrep(brep));
+
+                RhinoApp.WriteLine("Done");
+
+                // Wireframe creation
+                RhinoApp.Write("\tWireframes... ");
+                doc.Views.Redraw();
+                foreach (Brep brep in rhinoObjects.quads)
+                    rhinoObjects.wireframes.Add(Create.WireframeFromBrep(brep, uDegree));
+
+                RhinoApp.WriteLine("Done");
+                
                 // Surface creation
-                //@ Fix wireframe lack when NaN appears somewhere
                 RhinoApp.Write("\tSurfaces... ");
                 doc.Views.Redraw();
-                rhinoObjects.surfaces = new List<Surface>
-                {
-                    Create.SurfaceThroughPoints(rhinoObjects.grid, 3, 3, wrapPoints, wrapCurves)
-                };
+                rhinoObjects.surfaces = new List<Surface>();
 
-                if (rhinoObjects.surfaces[0] == null)
-                    foreach (Brep brep in rhinoObjects.quads)
-                        rhinoObjects.surfaces.Add(Create.SurfaceThroughPoints(Create.GridFromBrep(brep), 3, 3, wrapPoints, wrapCurves));
+                foreach (List<List<Polyline>> frame in rhinoObjects.lineframes)
+                    rhinoObjects.surfaces.Add(Create.SurfaceThroughPoints(Create.GridFromLineframe(frame), uDegree, vDegree, wrapPoints, wrapCurves));
 
                 RhinoApp.WriteLine("Done");
 
                 // Network Surface creation
                 RhinoApp.Write("\tNetwork Surfaces... ");
                 doc.Views.Redraw();
-                rhinoObjects.networkSurfaces = new List<Surface>
-                {
-                    Create.NetworkSurface(rhinoObjects.wireframe, 1)
-                };
+                rhinoObjects.networkSurfaces = new List<Surface>();
 
-                if (rhinoObjects.networkSurfaces[0] == null)
-                    foreach (Brep brep in rhinoObjects.quads)
-                        rhinoObjects.networkSurfaces.Add(Create.NetworkSurface(Create.WireframeFromBrep(brep), 1));
+                foreach (List<List<Curve>> frame in rhinoObjects.wireframes)
+                    rhinoObjects.networkSurfaces.Add(Create.NetworkSurface(frame, 1));
 
                 RhinoApp.WriteLine("Done");
 
@@ -427,7 +430,9 @@ namespace PlotEquation
                 RhinoApp.Write("\tSurface Divisions... ");
                 doc.Views.Redraw();
                 rhinoObjects.surfaceDivisions = new List<Brep>();
-                rhinoObjects.surfaceDivisions.AddRange(Create.DividedSurface(rhinoObjects.wireframe, pointsPerCurve, 3, 3));
+
+                foreach (List<List<Curve>> frame in rhinoObjects.wireframes)
+                    rhinoObjects.surfaceDivisions.AddRange(Create.DividedSurface(frame, pointsPerCurve, uDegree, vDegree));
                 
                 RhinoApp.WriteLine("Done");
                 doc.Views.Redraw();
@@ -633,6 +638,16 @@ namespace PlotEquation
             this.curvesPerSurface = curvesPerSurface;
             this.pointsPerCurve = pointsPerCurve;
             dimension = bounds.Count + 1;
+            uDegree = 3;
+            vDegree = 3;
+
+            foreach (Bounds b in bounds)
+                if (b.max - b.min <= 0)
+                {
+                    success = false;
+                    RhinoApp.WriteLine("Invalid bounds.");
+                    break;
+                }
 
             if (!DetermineEquationType())
             {
@@ -1021,17 +1036,10 @@ namespace PlotEquation
 
                         result = Convert.ToDouble(eq.Evaluate());
 
-                        if (dimension == 2 && (Double.IsNaN(result) || Double.IsInfinity(result)))
+                        if (Double.IsNaN(result) || Double.IsInfinity(result))
                             curve.Add(Objects.Point.NaN);
                         else
                         {
-                            if (Double.IsPositiveInfinity(result))
-                                result = Double.MaxValue;
-                            else if (Double.IsNegativeInfinity(result))
-                                result = Double.MinValue;
-                            else if (Double.IsNaN(result))
-                                result = 0;
-
                             var functionResult = ExpressionResult(eq, varOne, (dimension == 3) ? varTwo : result, (dimension == 3) ? result : varTwo);
 
                             //@ replace these lines

@@ -86,8 +86,9 @@ namespace PlotEquation
             string expression = "";
             Result rc = RhinoGet.GetString("Equation", true, ref expression);
 
-            StandardEquation eq = new StandardEquation(expression, new List<Bounds> { new Bounds(-10, 10), new Bounds(-10, 10) }, 50, 50);
-            
+            StandardEquation eq = new StandardEquation(expression, new List<Bounds> { new Bounds(-5, 5), new Bounds(-5, 5) }, 50, 50);
+            //StandardEquation eq = new StandardEquation(expression, new List<Bounds> { new Bounds(0, Math.PI), new Bounds(0, 2*Math.PI) }, 50, 50);
+
             if (eq.Successful())
             {
                 eq.Generate();
